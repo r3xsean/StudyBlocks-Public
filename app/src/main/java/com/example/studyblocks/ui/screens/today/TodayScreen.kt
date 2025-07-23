@@ -33,8 +33,10 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.platform.LocalContext
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavController
+import androidx.compose.ui.geometry.Offset
 import com.example.studyblocks.data.model.StudyBlock
 import com.example.studyblocks.data.model.Subject
 import com.example.studyblocks.data.model.getStatus
@@ -58,7 +60,7 @@ fun TodayScreen(
     val showCustomBlockDialog by viewModel.showCustomBlockDialog.collectAsState()
     val allSubjects by viewModel.allSubjects.collectAsState()
     val xpAnimations by viewModel.xpAnimations.collectAsState()
-    val xpChanges by viewModel.xpChanges.collectAsState() // ✅ make sure this exists in VM
+    val xpChanges by viewModel.xpChanges.collectAsState()
 
     Box(
         modifier = Modifier
@@ -123,7 +125,9 @@ fun TodayScreen(
                     studyBlocks = studyBlocks,
                     isLoading = isLoading,
                     xpChanges = xpChanges,
-                    onBlockToggle = { block -> viewModel.toggleBlockCompletion(block) }
+                    onBlockToggle = { block ->
+                        viewModel.toggleBlockCompletion(block, globalTapPosition.x, globalTapPosition.y)
+                    }
                 )
             }
         } // <-- closes the Column ✅

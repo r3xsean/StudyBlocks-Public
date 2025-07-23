@@ -15,6 +15,7 @@ import androidx.compose.foundation.layout.offset
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.geometry.Offset
 
 @Composable
 fun GlobalXPAnimation(
