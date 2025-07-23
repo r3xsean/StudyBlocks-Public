@@ -39,14 +39,15 @@ class TodayViewModel @Inject constructor(
     val weekDates = _weekDates.asStateFlow()
     
     // XP animation tracking
-    data class XPAnimation(val blockId: String, val xpChange: Int, val tapX: Float, val tapY: Float, val timestamp: Long)
+    data class XPAnimation(
+        val blockId: String,
+        val xpChange: Int,
+        val tapX: Float,
+        val tapY: Float,
+        val timestamp: Long
+    )
     private val _xpAnimations = MutableStateFlow<List<XPAnimation>>(emptyList())
     val xpAnimations = _xpAnimations.asStateFlow()
-
-    // Per-block XP changes for inline animations
-    data class XPChange(val blockId: String, val xpChange: Int, val timestamp: Long)
-    private val _xpChanges = MutableStateFlow<List<XPChange>>(emptyList())
-    val xpChanges = _xpChanges.asStateFlow()
     
     init {
         loadCurrentUser()
@@ -181,16 +182,19 @@ class TodayViewModel @Inject constructor(
 
                 // Add XP animation with tap coordinates
                 if (xpChange != 0) {
-                    val newXPAnimation = XPAnimation(block.id, xpChange, tapX, tapY, System.currentTimeMillis())
+                    val newXPAnimation = XPAnimation(
+                        block.id,
+                        xpChange,
+                        tapX,
+                        tapY,
+                        System.currentTimeMillis()
+                    )
                     _xpAnimations.value = _xpAnimations.value + newXPAnimation
-
-                    val newXPChange = XPChange(block.id, xpChange, newXPAnimation.timestamp)
-                    _xpChanges.value = _xpChanges.value + newXPChange
 
                     // Remove after animation duration
                     kotlinx.coroutines.delay(2000)
-                    _xpAnimations.value = _xpAnimations.value.filter { it.timestamp != newXPAnimation.timestamp }
-                    _xpChanges.value = _xpChanges.value.filter { it.timestamp != newXPChange.timestamp }
+                    _xpAnimations.value =
+                        _xpAnimations.value.filter { it.timestamp != newXPAnimation.timestamp }
                 }
             } catch (e: Exception) {
                 // Handle error

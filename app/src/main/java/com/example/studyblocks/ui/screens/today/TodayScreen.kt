@@ -26,6 +26,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.LayoutCoordinates
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.dp
@@ -60,7 +61,6 @@ fun TodayScreen(
     val showCustomBlockDialog by viewModel.showCustomBlockDialog.collectAsState()
     val allSubjects by viewModel.allSubjects.collectAsState()
     val xpAnimations by viewModel.xpAnimations.collectAsState()
-    val xpChanges by viewModel.xpChanges.collectAsState()
 
     Box(
         modifier = Modifier
@@ -69,7 +69,6 @@ fun TodayScreen(
     ) {
         val context = LocalContext.current
         val displayMetrics = context.resources.displayMetrics
-        var globalTapPosition by remember { mutableStateOf(Offset(0f, 0f)) }
 
         // Main Content Column
         Column(
@@ -124,9 +123,8 @@ fun TodayScreen(
                 StudyBlocksList(
                     studyBlocks = studyBlocks,
                     isLoading = isLoading,
-                    xpChanges = xpChanges,
-                    onBlockToggle = { block ->
-                        viewModel.toggleBlockCompletion(block, globalTapPosition.x, globalTapPosition.y)
+                    onBlockToggle = { block, offset ->
+                        viewModel.toggleBlockCompletion(block, offset.x, offset.y)
                     }
                 )
             }
@@ -248,8 +246,7 @@ fun WeekDateItem(
 fun StudyBlocksList(
     studyBlocks: List<StudyBlock>,
     isLoading: Boolean,
-    xpChanges: List<TodayViewModel.XPChange>,
-    onBlockToggle: (StudyBlock) -> Unit
+    onBlockToggle: (StudyBlock, Offset) -> Unit
 ) {
     if (studyBlocks.isEmpty()) {
         EmptyState()
@@ -259,12 +256,10 @@ fun StudyBlocksList(
         ) {
             items(studyBlocks) { block ->
                 val itemIndex = studyBlocks.indexOf(block)
-                val blockXPChange = xpChanges.find { it.blockId == block.id }
                 StaggeredAnimation(itemIndex = itemIndex) {
                     StudyBlockCard(
                         studyBlock = block,
                         isLoading = isLoading,
-                        xpChange = blockXPChange,
                         onToggle = onBlockToggle
                     )
                 }
@@ -277,8 +272,7 @@ fun StudyBlocksList(
 fun StudyBlockCard(
     studyBlock: StudyBlock,
     isLoading: Boolean,
-    xpChange: TodayViewModel.XPChange?,
-    onToggle: (StudyBlock) -> Unit
+    onToggle: (StudyBlock, Offset) -> Unit
 ) {
     val status = studyBlock.getStatus()
     val cardColor = when (status) {
@@ -301,11 +295,18 @@ fun StudyBlockCard(
     )
     
     CompletionAnimation(isCompleted = studyBlock.isCompleted) {
+        var cardCoords by remember { mutableStateOf<LayoutCoordinates?>(null) }
         Card(
             modifier = Modifier
                 .fillMaxWidth()
-                .clickable(enabled = !isLoading && studyBlock.canComplete) { 
-                    onToggle(studyBlock) 
+                .onGloballyPositioned { cardCoords = it }
+                .pointerInput(isLoading, studyBlock.canComplete, studyBlock.isCompleted) {
+                    detectTapGestures { offset ->
+                        if (!isLoading && (studyBlock.canComplete || studyBlock.isCompleted)) {
+                            val rootPos = cardCoords?.positionInRoot() ?: Offset.Zero
+                            onToggle(studyBlock, rootPos + offset)
+                        }
+                    }
                 },
             elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
             shape = RoundedCornerShape(8.dp),
@@ -353,72 +354,24 @@ fun StudyBlockCard(
             Box(
                 contentAlignment = Alignment.Center
             ) {
-                // Completion Checkbox
                 if (studyBlock.canComplete || studyBlock.isCompleted) {
-                    IconButton(
-                        onClick = { onToggle(studyBlock) },
-                        enabled = !isLoading
-                    ) {
-                        Icon(
-                            imageVector = if (studyBlock.isCompleted) 
-                                Icons.Default.CheckCircle 
-                            else 
-                                Icons.Default.FiberManualRecord,
-                            contentDescription = if (studyBlock.isCompleted) "Completed" else "Mark Complete",
-                            tint = when {
-                                studyBlock.isCompleted -> MaterialTheme.colorScheme.primary
-                                studyBlock.canComplete -> MaterialTheme.colorScheme.onSurface
-                                else -> MaterialTheme.colorScheme.onSurface.copy(alpha = 0.3f)
-                            }
-                        )
-                    }
-                }
-                
-                // XP Change Animation
-                if (xpChange != null) {
-                    XPChangeAnimation(xpChange = xpChange)
+                    Icon(
+                        imageVector = if (studyBlock.isCompleted)
+                            Icons.Default.CheckCircle
+                        else
+                            Icons.Default.FiberManualRecord,
+                        contentDescription = if (studyBlock.isCompleted) "Completed" else "Mark Complete",
+                        tint = when {
+                            studyBlock.isCompleted -> MaterialTheme.colorScheme.primary
+                            studyBlock.canComplete -> MaterialTheme.colorScheme.onSurface
+                            else -> MaterialTheme.colorScheme.onSurface.copy(alpha = 0.3f)
+                        }
+                    )
                 }
             }
         }
         }
     }
-}
-
-@Composable
-fun XPChangeAnimation(
-    xpChange: TodayViewModel.XPChange
-) {
-    val offsetY by animateFloatAsState(
-        targetValue = -40f,
-        animationSpec = tween(1500, easing = LinearOutSlowInEasing),
-        label = "xp_offset"
-    )
-    
-    val alpha by animateFloatAsState(
-        targetValue = 0f,
-        animationSpec = tween(1500, delayMillis = 500),
-        label = "xp_alpha"
-    )
-    
-    val scale by animateFloatAsState(
-        targetValue = 1.2f,
-        animationSpec = spring(
-            dampingRatio = Spring.DampingRatioMediumBouncy,
-            stiffness = Spring.StiffnessHigh
-        ),
-        label = "xp_scale"
-    )
-    
-    Text(
-        text = if (xpChange.xpChange > 0) "+${xpChange.xpChange} XP" else "${xpChange.xpChange} XP",
-        color = if (xpChange.xpChange > 0) Color(0xFF4CAF50) else Color(0xFFF44336),
-        fontSize = 14.sp,
-        fontWeight = FontWeight.Bold,
-        modifier = Modifier
-            .offset(y = offsetY.dp)
-            .alpha(1f - alpha)
-            .scale(scale)
-    )
 }
 
 @Composable
