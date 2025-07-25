@@ -185,7 +185,12 @@ class SubjectsViewModel @Inject constructor(
         }
     }
     
-    fun generateNewSchedule(preferredBlocks: Int? = null, horizon: Int? = null, blockDuration: Int? = null) {
+    fun generateNewSchedule(
+        blocksPerWeekday: Int? = null, 
+        blocksPerWeekend: Int? = null, 
+        horizon: Int? = null, 
+        blockDuration: Int? = null
+    ) {
         val currentUser = _currentUser.value ?: return
         
         viewModelScope.launch {
@@ -193,7 +198,8 @@ class SubjectsViewModel @Inject constructor(
             try {
                 val result = studyRepository.generateNewSchedule(
                     userId = currentUser.id,
-                    preferredBlocksPerDay = preferredBlocks ?: currentUser.preferredBlocksPerDay,
+                    blocksPerWeekday = blocksPerWeekday ?: currentUser.preferredBlocksPerDay,
+                    blocksPerWeekend = blocksPerWeekend ?: 2,
                     scheduleHorizon = horizon ?: 21,
                     blockDurationMinutes = blockDuration ?: 60
                 )

@@ -5,59 +5,46 @@ import kotlin.math.pow
 
 object XPManager {
     
-    // Base XP per subject - 100% completion of all blocks in schedule gives this amount
-    private const val BASE_XP_PER_SUBJECT = 1000
+    // Base XP for entire schedule - 100% completion of all blocks gives this amount
+    private const val TOTAL_SCHEDULE_XP = 1000
     
     /**
      * Calculate XP for completing a study block
-     * XP is based on the percentage of total blocks completed for that subject
-     * 100% completion of all subject blocks = BASE_XP_PER_SUBJECT regardless of total count
+     * XP is distributed equally across all subjects, then proportionally within each subject
+     * Each subject gets equal total XP regardless of time allocation
      */
     fun calculateBlockXP(
-        completedBlocks: Int,
-        totalBlocksInSchedule: Int,
+        blockDurationMinutes: Int,
+        totalSubjectTimeMinutes: Int,
+        totalSubjectCount: Int,
         subject: Subject
     ): Int {
-        if (totalBlocksInSchedule <= 0) return 0
+        if (totalSubjectTimeMinutes <= 0 || totalSubjectCount <= 0) return 0
         
-        // Base XP per block for this subject
-        val baseXpPerBlock = BASE_XP_PER_SUBJECT / totalBlocksInSchedule
+        // Each subject gets equal share of total XP
+        val xpPerSubject = TOTAL_SCHEDULE_XP.toDouble() / totalSubjectCount
         
-        // Confidence multiplier - lower confidence gives slightly more XP to encourage practice
-        val confidenceMultiplier = when (subject.confidence) {
-            in 1..3 -> 1.2f  // Struggling subjects get 20% bonus
-            in 4..6 -> 1.1f  // Learning subjects get 10% bonus
-            in 7..8 -> 1.0f  // Good confidence gets normal XP
-            else -> 0.9f     // Excellent confidence gets 10% less (already mastered)
-        }
+        // Within each subject, XP is distributed proportionally by time
+        val subjectXpRate = xpPerSubject / totalSubjectTimeMinutes
         
-        return (baseXpPerBlock * confidenceMultiplier).toInt()
+        // XP for this block based on its duration within the subject
+        val blockXp = blockDurationMinutes * subjectXpRate
+        
+        return blockXp.toInt()
     }
     
     /**
-     * Calculate XP for custom blocks based on average confidence of all subjects
+     * Calculate XP for custom blocks based on time invested
+     * Uses a consistent rate of 100 XP per hour
      */
     fun calculateCustomBlockXP(
         allSubjects: List<Subject>,
         customBlockDurationMinutes: Int
     ): Int {
-        if (allSubjects.isEmpty()) return 50 // Default XP if no subjects
+        // Base XP for custom block: 100 XP per hour
+        val customXP = (customBlockDurationMinutes / 60.0 * 100)
         
-        // Average confidence across all subjects
-        val averageConfidence = allSubjects.map { it.confidence }.average()
-        
-        // Base XP for custom block (scaled by duration)
-        val baseCustomXP = (customBlockDurationMinutes / 60.0 * 100).toInt()
-        
-        // Confidence multiplier based on average confidence
-        val confidenceMultiplier = when (averageConfidence.toInt()) {
-            in 1..3 -> 1.2f
-            in 4..6 -> 1.1f
-            in 7..8 -> 1.0f
-            else -> 0.9f
-        }
-        
-        return (baseCustomXP * confidenceMultiplier).toInt()
+        return customXP.toInt()
     }
     
     /**

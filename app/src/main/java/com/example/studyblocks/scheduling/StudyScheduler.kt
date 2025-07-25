@@ -2,6 +2,7 @@ package com.example.studyblocks.scheduling
 
 import com.example.studyblocks.data.model.StudyBlock
 import com.example.studyblocks.data.model.Subject
+import java.time.DayOfWeek
 import java.time.LocalDate
 import java.time.temporal.ChronoUnit
 import java.util.*
@@ -9,27 +10,157 @@ import kotlin.math.*
 
 class StudyScheduler {
     
+    fun rescheduleWithMissedBlocks(
+        allBlocks: List<StudyBlock>,
+        userId: String,
+        blocksPerWeekday: Int = 3,
+        blocksPerWeekend: Int = 2,
+        scheduleHorizon: Int = 21
+    ): List<StudyBlock> {
+        val currentDate = LocalDate.now()
+        
+        // Separate completed, missed, and future blocks
+        val completedBlocks = allBlocks.filter { it.isCompleted }
+        val missedBlocks = allBlocks.filter { it.isOverdue && !it.isCompleted }
+        val futureBlocks = allBlocks.filter { 
+            it.scheduledDate >= currentDate && !it.isCompleted 
+        }
+        
+        // If no missed blocks, return original schedule
+        if (missedBlocks.isEmpty()) {
+            return allBlocks
+        }
+        
+        // Create new schedule starting from today
+        val rescheduledBlocks = mutableListOf<StudyBlock>()
+        val scheduleMap = mutableMapOf<LocalDate, MutableList<StudyBlock>>()
+        
+        // Initialize schedule map for the horizon
+        for (i in 0 until scheduleHorizon) {
+            val date = currentDate.plusDays(i.toLong())
+            scheduleMap[date] = mutableListOf()
+        }
+        
+        // First, add completed blocks to maintain their dates
+        completedBlocks.forEach { block ->
+            rescheduledBlocks.add(block)
+        }
+        
+        // Combine missed blocks with future blocks for redistribution
+        val blocksToReschedule = missedBlocks + futureBlocks
+        
+        // Redistribute all non-completed blocks
+        val redistributedBlocks = redistributeBlocks(
+            blocks = blocksToReschedule,
+            scheduleMap = scheduleMap,
+            blocksPerWeekday = blocksPerWeekday,
+            blocksPerWeekend = blocksPerWeekend,
+            startDate = currentDate,
+            scheduleHorizon = scheduleHorizon
+        )
+        
+        rescheduledBlocks.addAll(redistributedBlocks)
+        
+        return rescheduledBlocks.sortedBy { it.scheduledDate }
+    }
+    
+    private fun redistributeBlocks(
+        blocks: List<StudyBlock>,
+        scheduleMap: MutableMap<LocalDate, MutableList<StudyBlock>>,
+        blocksPerWeekday: Int,
+        blocksPerWeekend: Int,
+        startDate: LocalDate,
+        scheduleHorizon: Int
+    ): List<StudyBlock> {
+        val redistributedBlocks = mutableListOf<StudyBlock>()
+        var blockIndex = 0
+        
+        // Distribute blocks day by day, respecting weekday/weekend capacity
+        for (dayOffset in 0 until scheduleHorizon) {
+            val currentDate = startDate.plusDays(dayOffset.toLong())
+            
+            // Determine capacity for this day
+            val dailyCapacity = when (currentDate.dayOfWeek) {
+                DayOfWeek.SATURDAY, DayOfWeek.SUNDAY -> blocksPerWeekend
+                else -> blocksPerWeekday
+            }
+            
+            // Fill this day up to capacity
+            var blocksScheduledToday = 0
+            while (blocksScheduledToday < dailyCapacity && blockIndex < blocks.size) {
+                val originalBlock = blocks[blockIndex]
+                val rescheduledBlock = originalBlock.copy(
+                    id = originalBlock.id, // Keep original ID
+                    scheduledDate = currentDate
+                )
+                redistributedBlocks.add(rescheduledBlock)
+                blockIndex++
+                blocksScheduledToday++
+            }
+            
+            // If we've scheduled all blocks, break
+            if (blockIndex >= blocks.size) break
+        }
+        
+        // If there are remaining blocks that didn't fit in the horizon,
+        // extend the schedule as needed
+        var currentExtensionDay = scheduleHorizon
+        while (blockIndex < blocks.size) {
+            val extensionDate = startDate.plusDays(currentExtensionDay.toLong())
+            val dailyCapacity = when (extensionDate.dayOfWeek) {
+                DayOfWeek.SATURDAY, DayOfWeek.SUNDAY -> blocksPerWeekend
+                else -> blocksPerWeekday
+            }
+            
+            // Fill this extension day up to its capacity
+            var blocksScheduledThisExtensionDay = 0
+            while (blocksScheduledThisExtensionDay < dailyCapacity && blockIndex < blocks.size) {
+                val originalBlock = blocks[blockIndex]
+                val rescheduledBlock = originalBlock.copy(
+                    id = originalBlock.id,
+                    scheduledDate = extensionDate
+                )
+                redistributedBlocks.add(rescheduledBlock)
+                blockIndex++
+                blocksScheduledThisExtensionDay++
+            }
+            
+            currentExtensionDay++
+        }
+        
+        return redistributedBlocks
+    }
+    
     fun generateSchedule(
         subjects: List<Subject>,
         userId: String,
         scheduleHorizon: Int = 21, // days
-        preferredBlocksPerDay: Int = 3, // user's preferred blocks per day
+        blocksPerWeekday: Int = 3, // user's preferred blocks per weekday
+        blocksPerWeekend: Int = 2, // user's preferred blocks per weekend day
         blockDurationMinutes: Int = 60 // duration for each block
     ): List<StudyBlock> {
         val allStudyBlocks = mutableListOf<StudyBlock>()
         val scheduleMap = mutableMapOf<LocalDate, MutableList<StudyBlock>>()
         val subjectPriorities = calculateSubjectPriorities(subjects)
         
-        // Initialize schedule map with fixed capacity per day
+        // Initialize schedule map with different capacity for weekdays/weekends
         val startDate = LocalDate.now()
+        var totalWeekdays = 0
+        var totalWeekendDays = 0
+        
         for (i in 0 until scheduleHorizon) {
-            val daily = startDate.plusDays(i.toLong())
-            scheduleMap[daily] = mutableListOf() // Initialize with fixed capacity
+            val date = startDate.plusDays(i.toLong())
+            scheduleMap[date] = mutableListOf()
+            
+            // Count weekdays vs weekend days
+            when (date.dayOfWeek) {
+                DayOfWeek.SATURDAY, DayOfWeek.SUNDAY -> totalWeekendDays++
+                else -> totalWeekdays++
+            }
         }
         
-        // Calculate total blocks to distribute
-        val totalDays = scheduleHorizon
-        val totalBlocks = preferredBlocksPerDay * totalDays
+        // Calculate total blocks to distribute based on weekday/weekend preferences
+        val totalBlocks = (totalWeekdays * blocksPerWeekday) + (totalWeekendDays * blocksPerWeekend)
         
         // Calculate blocks per subject based on confidence weights only
         val totalWeight = subjects.sumOf { it.confidenceWeight }
@@ -56,12 +187,13 @@ class StudyScheduler {
         // Shuffle blocks to mix subjects throughout the schedule
         val shuffledBlocks = allStudyBlocks.shuffled()
         
-        // Force distribute to ensure daily capacity is met
-        return forceDistributeFixedDailyCapacity(
+        // Force distribute to ensure daily capacity is met with weekday/weekend awareness
+        return forceDistributeWithWeekdayWeekendCapacity(
             allStudyBlocks = shuffledBlocks,
             scheduleMap = scheduleMap,
-            preferredBlocksPerDay = preferredBlocksPerDay,
-            totalDays = totalDays
+            blocksPerWeekday = blocksPerWeekday,
+            blocksPerWeekend = blocksPerWeekend,
+            scheduleHorizon = scheduleHorizon
         )
     }
     
@@ -167,6 +299,66 @@ class StudyScheduler {
             }
         }
 
+        return distributedBlocks.sortedBy { it.scheduledDate }
+    }
+    
+    private fun forceDistributeWithWeekdayWeekendCapacity(
+        allStudyBlocks: List<StudyBlock>,
+        scheduleMap: MutableMap<LocalDate, MutableList<StudyBlock>>,
+        blocksPerWeekday: Int,
+        blocksPerWeekend: Int,
+        scheduleHorizon: Int
+    ): List<StudyBlock> {
+        val distributedBlocks = mutableListOf<StudyBlock>()
+        val startDate = LocalDate.now()
+        
+        // Count total required blocks for weekdays and weekends
+        var totalWeekdayBlocks = 0
+        var totalWeekendBlocks = 0
+        
+        for (i in 0 until scheduleHorizon) {
+            val date = startDate.plusDays(i.toLong())
+            when (date.dayOfWeek) {
+                DayOfWeek.SATURDAY, DayOfWeek.SUNDAY -> totalWeekendBlocks += blocksPerWeekend
+                else -> totalWeekdayBlocks += blocksPerWeekday
+            }
+        }
+        
+        val totalRequiredBlocks = totalWeekdayBlocks + totalWeekendBlocks
+        
+        // If we don't have enough blocks, duplicate existing ones to fill capacity
+        val blocksToDistribute = if (allStudyBlocks.size < totalRequiredBlocks) {
+            generateExactBlockCount(allStudyBlocks, totalRequiredBlocks)
+        } else {
+            allStudyBlocks.take(totalRequiredBlocks)
+        }
+        
+        // Distribute blocks based on weekday/weekend capacity
+        var blockIndex = 0
+        for (dayOffset in 0 until scheduleHorizon) {
+            val currentDate = startDate.plusDays(dayOffset.toLong())
+            
+            // Determine blocks for this day based on weekday/weekend
+            val blocksForThisDay = when (currentDate.dayOfWeek) {
+                DayOfWeek.SATURDAY, DayOfWeek.SUNDAY -> blocksPerWeekend
+                else -> blocksPerWeekday
+            }
+            
+            // Add the appropriate number of blocks to this day
+            for (blockInDay in 0 until blocksForThisDay) {
+                if (blockIndex < blocksToDistribute.size) {
+                    val originalBlock = blocksToDistribute[blockIndex]
+                    val distributedBlock = originalBlock.copy(
+                        id = UUID.randomUUID().toString(), // Ensure unique ID
+                        scheduledDate = currentDate
+                        // Keep original blockNumber for subject-based sequence
+                    )
+                    distributedBlocks.add(distributedBlock)
+                    blockIndex++
+                }
+            }
+        }
+        
         return distributedBlocks.sortedBy { it.scheduledDate }
     }
     

@@ -1,9 +1,11 @@
 package com.example.studyblocks.repository
 
+import androidx.room.Transaction
 import com.example.studyblocks.data.local.dao.StudyBlockDao
 import com.example.studyblocks.data.local.dao.StudySessionDao
 import com.example.studyblocks.data.local.dao.SubjectDao
 import com.example.studyblocks.data.local.dao.UserDao
+import com.example.studyblocks.data.local.dao.SchedulePreferencesDao
 import com.example.studyblocks.data.model.*
 import com.example.studyblocks.scheduling.StudyScheduler
 import com.example.studyblocks.data.model.XPManager
@@ -11,6 +13,8 @@ import com.example.studyblocks.sync.FirebaseSyncRepository
 import com.example.studyblocks.sync.SyncResult
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import java.time.LocalDate
 import java.time.LocalDateTime
 import javax.inject.Inject
@@ -22,10 +26,14 @@ class StudyRepository @Inject constructor(
     private val subjectDao: SubjectDao,
     private val studyBlockDao: StudyBlockDao,
     private val studySessionDao: StudySessionDao,
+    private val schedulePreferencesDao: SchedulePreferencesDao,
     private val studyScheduler: StudyScheduler,
     private val firebaseSyncRepository: FirebaseSyncRepository,
     private val xpManager: XPManager
 ) {
+    
+    // Mutex to prevent concurrent block completion operations 
+    private val blockCompletionMutex = Mutex()
     
     // User operations
     suspend fun getCurrentUser(): User? = userDao.getCurrentUser()
@@ -48,6 +56,19 @@ class StudyRepository @Inject constructor(
         subjectDao.updateSubjectConfidence(subjectId, confidence, LocalDateTime.now())
     }
     
+    // Schedule Preferences operations
+    suspend fun getSchedulePreferences(userId: String): SchedulePreferences? = 
+        schedulePreferencesDao.getSchedulePreferences(userId)
+    
+    fun getSchedulePreferencesFlow(userId: String): Flow<SchedulePreferences?> = 
+        schedulePreferencesDao.getSchedulePreferencesFlow(userId)
+    
+    suspend fun insertSchedulePreferences(preferences: SchedulePreferences) = 
+        schedulePreferencesDao.insertSchedulePreferences(preferences)
+    
+    suspend fun updateSchedulePreferences(preferences: SchedulePreferences) = 
+        schedulePreferencesDao.updateSchedulePreferences(preferences)
+    
     // Study Block operations
     fun getBlocksForDate(userId: String, date: LocalDate): Flow<List<StudyBlock>> =
         studyBlockDao.getBlocksForDate(userId, date)
@@ -63,79 +84,111 @@ class StudyRepository @Inject constructor(
     suspend fun insertStudyBlock(block: StudyBlock) = studyBlockDao.insertBlock(block)
     
     suspend fun markBlockComplete(blockId: String): Int {
-        val completedBlock = studyBlockDao.getBlockById(blockId)
-        if (completedBlock != null) {
-            val subject = subjectDao.getSubjectById(completedBlock.subjectId)
-            val user = userDao.getCurrentUser()
-            
-            if (subject != null && user != null) {
-                val totalBlocks = studyBlockDao.getBlocksForSubject(completedBlock.subjectId).first().size
-                val completedBlocks = studyBlockDao.getBlocksForSubject(completedBlock.subjectId).first().count { it.isCompleted }
-                
-                val blockXP = xpManager.calculateBlockXP(completedBlocks + 1, totalBlocks, subject)
-                val updatedSubject = xpManager.updateSubjectXP(subject, blockXP)
-                
-                // Get all subjects for the user to calculate global XP
-                val allSubjects = subjectDao.getAllSubjects(user.id).first().map { 
-                    if (it.id == updatedSubject.id) updatedSubject else it
-                }
-                val updatedUser = xpManager.updateUserGlobalXP(user, allSubjects)
-                
-                subjectDao.updateSubjectXP(updatedSubject.id, updatedSubject.xp, updatedSubject.level, LocalDateTime.now())
-                userDao.updateUserGlobalXP(updatedUser.id, updatedUser.globalXp, updatedUser.globalLevel, LocalDateTime.now())
-                
-                studyBlockDao.markBlockComplete(blockId, true, LocalDateTime.now())
-                return blockXP
-            }
+        return blockCompletionMutex.withLock {
+            performAtomicBlockCompletion(blockId, true)
+        }
+    }
+    
+    @Transaction
+    private suspend fun performAtomicBlockCompletion(blockId: String, isComplete: Boolean): Int {
+        // Get current block state atomically
+        val block = studyBlockDao.getBlockById(blockId) ?: return 0
+        
+        // Prevent duplicate operations - if already in desired state, return 0
+        if (block.isCompleted == isComplete) {
+            return 0
         }
         
-        studyBlockDao.markBlockComplete(blockId, true, LocalDateTime.now())
-        return 0
+        val subject = subjectDao.getSubjectById(block.subjectId) ?: return 0
+        val user = userDao.getCurrentUser() ?: return 0
+        
+        // Get current completion data in one atomic read
+        val allBlocksForSubject = studyBlockDao.getBlocksForSubject(block.subjectId).first()
+        val allSubjects = subjectDao.getAllSubjects(user.id).first()
+        
+        // Calculate total time allocated to this subject and total subject count
+        val totalSubjectTimeMinutes = allBlocksForSubject.sumOf { it.durationMinutes }
+        val totalSubjectCount = allSubjects.size
+        
+        // Calculate XP for this specific block - each subject gets equal total XP
+        val blockXP = xpManager.calculateBlockXP(
+            blockDurationMinutes = block.durationMinutes,
+            totalSubjectTimeMinutes = totalSubjectTimeMinutes,
+            totalSubjectCount = totalSubjectCount,
+            subject = subject
+        )
+        
+        // Calculate XP changes
+        val xpDelta = if (isComplete) blockXP else -blockXP
+        val updatedSubject = xpManager.updateSubjectXP(subject, xpDelta)
+        
+        // Update global XP calculation
+        val allUpdatedSubjects = subjectDao.getAllSubjects(user.id).first().map { 
+            if (it.id == updatedSubject.id) updatedSubject else it
+        }
+        val updatedUser = xpManager.updateUserGlobalXP(user, allUpdatedSubjects)
+        
+        // Perform all database updates atomically
+        subjectDao.updateSubjectXP(updatedSubject.id, updatedSubject.xp, updatedSubject.level, LocalDateTime.now())
+        userDao.updateUserGlobalXP(updatedUser.id, updatedUser.globalXp, updatedUser.globalLevel, LocalDateTime.now())
+        studyBlockDao.markBlockComplete(blockId, isComplete, if (isComplete) LocalDateTime.now() else null)
+        
+        return blockXP
     }
     
     suspend fun markBlockIncomplete(blockId: String): Int {
-        val incompletedBlock = studyBlockDao.getBlockById(blockId)
-        if (incompletedBlock != null && incompletedBlock.isCompleted) {
-            val subject = subjectDao.getSubjectById(incompletedBlock.subjectId)
-            val user = userDao.getCurrentUser()
-            
-            if (subject != null && user != null) {
-                val totalBlocks = studyBlockDao.getBlocksForSubject(incompletedBlock.subjectId).first().size
-                val completedBlocks = studyBlockDao.getBlocksForSubject(incompletedBlock.subjectId).first().count { it.isCompleted }
-                
-                // Calculate the XP that was awarded for this block and subtract it
-                val blockXP = xpManager.calculateBlockXP(completedBlocks, totalBlocks, subject)
-                val updatedSubject = xpManager.updateSubjectXP(subject, -blockXP)
-                
-                // Get all subjects for the user to calculate global XP
-                val allSubjects = subjectDao.getAllSubjects(user.id).first().map { 
-                    if (it.id == updatedSubject.id) updatedSubject else it
-                }
-                val updatedUser = xpManager.updateUserGlobalXP(user, allSubjects)
-                
-                subjectDao.updateSubjectXP(updatedSubject.id, updatedSubject.xp, updatedSubject.level, LocalDateTime.now())
-                userDao.updateUserGlobalXP(updatedUser.id, updatedUser.globalXp, updatedUser.globalLevel, LocalDateTime.now())
-                
-                studyBlockDao.markBlockComplete(blockId, false, null)
-                return blockXP
-            }
+        return blockCompletionMutex.withLock {
+            performAtomicBlockCompletion(blockId, false)
         }
+    }
+    
+    // Missed Block Rescheduling
+    suspend fun rescheduleWithMissedBlocks(userId: String): SchedulingResult {
+        val allBlocks = studyBlockDao.getAllBlocksForUser(userId).first()
+        val schedulePrefs = getSchedulePreferences(userId)
         
-        studyBlockDao.markBlockComplete(blockId, false, null)
-        return 0
+        val actualBlocksPerWeekday = schedulePrefs?.blocksPerWeekday ?: 3
+        val actualBlocksPerWeekend = schedulePrefs?.blocksPerWeekend ?: 2
+        val actualHorizon = schedulePrefs?.scheduleHorizonDays ?: 21
+        
+        // Get rescheduled blocks
+        val rescheduledBlocks = studyScheduler.rescheduleWithMissedBlocks(
+            allBlocks = allBlocks,
+            userId = userId,
+            blocksPerWeekday = actualBlocksPerWeekday,
+            blocksPerWeekend = actualBlocksPerWeekend,
+            scheduleHorizon = actualHorizon
+        )
+        
+        // Delete existing incomplete blocks and insert rescheduled ones
+        studyBlockDao.deletePendingBlocksForUser(userId)
+        
+        // Only insert the non-completed blocks (completed blocks maintain their original state)
+        val blocksToInsert = rescheduledBlocks.filter { !it.isCompleted }
+        studyBlockDao.insertBlocks(blocksToInsert)
+        
+        return SchedulingResult(
+            blocks = rescheduledBlocks,
+            totalBlocks = rescheduledBlocks.size,
+            scheduleHorizon = actualHorizon,
+            averageBlocksPerDay = rescheduledBlocks.filter { !it.isCompleted }.size / actualHorizon.toDouble(),
+            subjectDistribution = rescheduledBlocks.groupingBy { it.subjectName }.eachCount()
+        )
     }
     
     // Schedule Generation
     suspend fun generateNewSchedule(
         userId: String,
-        preferredBlocksPerDay: Int? = null,
+        blocksPerWeekday: Int? = null,
+        blocksPerWeekend: Int? = null,
         scheduleHorizon: Int? = null,
         blockDurationMinutes: Int? = null
     ): SchedulingResult {
         val user = userDao.getCurrentUser()
         val subjects = subjectDao.getAllSubjects(userId).first()
+        val schedulePrefs = getSchedulePreferences(userId)
         
-        val actualHorizon = scheduleHorizon ?: 21
+        val actualHorizon = scheduleHorizon ?: schedulePrefs?.scheduleHorizonDays ?: 21
         
         if (subjects.isEmpty()) {
             return SchedulingResult(
@@ -151,13 +204,15 @@ class StudyRepository @Inject constructor(
         studyBlockDao.deletePendingBlocksForUser(userId)
         
         // Generate new schedule with specified preferences
-        val actualPreferredBlocks = preferredBlocksPerDay ?: user?.preferredBlocksPerDay ?: 3
-        val actualBlockDuration = blockDurationMinutes ?: 60
+        val actualBlocksPerWeekday = blocksPerWeekday ?: schedulePrefs?.blocksPerWeekday ?: 3
+        val actualBlocksPerWeekend = blocksPerWeekend ?: schedulePrefs?.blocksPerWeekend ?: 2
+        val actualBlockDuration = blockDurationMinutes ?: schedulePrefs?.defaultBlockDurationMinutes ?: 60
         val newBlocks = studyScheduler.generateSchedule(
             subjects = subjects,
             userId = userId,
             scheduleHorizon = actualHorizon,
-            preferredBlocksPerDay = actualPreferredBlocks,
+            blocksPerWeekday = actualBlocksPerWeekday,
+            blocksPerWeekend = actualBlocksPerWeekend,
             blockDurationMinutes = actualBlockDuration
         )
         

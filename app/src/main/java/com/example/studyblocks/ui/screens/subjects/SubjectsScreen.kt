@@ -29,6 +29,7 @@ import androidx.compose.ui.window.Dialog
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavController
 import com.example.studyblocks.data.model.Subject
+import com.example.studyblocks.navigation.Screen
 import com.example.studyblocks.data.model.SubjectIcon
 import com.example.studyblocks.data.model.SubjectIconMatcher
 import com.example.studyblocks.repository.SchedulingResult
@@ -52,7 +53,6 @@ fun SubjectsScreen(
     
     var showSortMenu by remember { mutableStateOf(false) }
     var showScheduleDialog by remember { mutableStateOf(false) }
-    var showScheduleSettingsDialog by remember { mutableStateOf(false) }
     
     // Handle schedule result
     LaunchedEffect(scheduleResult) {
@@ -136,7 +136,7 @@ fun SubjectsScreen(
                             
                             // Generate button
                             Button(
-                                onClick = { showScheduleSettingsDialog = true },
+                                onClick = { navController.navigate(Screen.ScheduleSettings.route) },
                                 modifier = Modifier.fillMaxWidth(),
                                 enabled = !isGeneratingSchedule
                             ) {
@@ -207,17 +207,6 @@ fun SubjectsScreen(
         )
     }
     
-    // Schedule Settings Dialog
-    if (showScheduleSettingsDialog) {
-        ScheduleSettingsDialog(
-            currentPreferredBlocks = viewModel.preferredBlocksPerDay.collectAsState().value,
-            onDismiss = { showScheduleSettingsDialog = false },
-            onGenerate = { preferredBlocks, horizon, blockDuration ->
-                viewModel.generateNewSchedule(preferredBlocks, horizon, blockDuration)
-                showScheduleSettingsDialog = false
-            }
-        )
-    }
     
     // Schedule Result Dialog
     if (showScheduleDialog && scheduleResult != null) {
@@ -645,200 +634,6 @@ fun PreferredBlocksPerDaySelector(
     }
 }
 
-@Composable
-fun ScheduleSettingsDialog(
-    currentPreferredBlocks: Int,
-    onDismiss: () -> Unit,
-    onGenerate: (preferredBlocks: Int, horizon: Int, blockDuration: Int) -> Unit
-) {
-    var selectedBlocks by remember { mutableStateOf(currentPreferredBlocks) }
-    var selectedHorizon by remember { mutableStateOf(14) } // Default 2 weeks
-    var selectedBlockDuration by remember { mutableStateOf(60) } // Default 1 hour
-    
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { 
-            Text(
-                text = "📅 Schedule Settings",
-                fontSize = 20.sp,
-                fontWeight = FontWeight.Bold
-            )
-        },
-        text = {
-            Column {
-                Text(
-                    text = "Configure your study schedule preferences:",
-                    fontSize = 14.sp,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-                
-                Spacer(modifier = Modifier.height(16.dp))
-                
-                // Schedule horizon
-                Text(
-                    text = "Schedule horizon: $selectedHorizon days",
-                    fontSize = 16.sp,
-                    fontWeight = FontWeight.Medium
-                )
-                
-                Spacer(modifier = Modifier.height(8.dp))
-                
-                LazyRow(
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    items(listOf(7, 10, 14, 17, 21)) { days ->
-                        FilterChip(
-                            onClick = { selectedHorizon = days },
-                            label = { 
-                                Text(
-                                    text = when (days) {
-                                        7 -> "1w"
-                                        10 -> "10d"
-                                        14 -> "2w"
-                                        17 -> "17d"
-                                        21 -> "3w"
-                                        else -> "${days}d"
-                                    }
-                                )
-                            },
-                            selected = days == selectedHorizon,
-                            modifier = Modifier.widthIn(min = 48.dp)
-                        )
-                    }
-                }
-                
-                Text(
-                    text = when (selectedHorizon) {
-                        7 -> "One week - Quick sprint"
-                        10 -> "Ten days - Short-term focus"
-                        14 -> "Two weeks - Balanced planning"
-                        17 -> "17 days - Extended coverage"
-                        21 -> "Three weeks - Comprehensive schedule"
-                        else -> "$selectedHorizon days"
-                    },
-                    fontSize = 12.sp,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-                
-                Spacer(modifier = Modifier.height(20.dp))
-                
-                // Blocks per day
-                Text(
-                    text = "Blocks per day: $selectedBlocks",
-                    fontSize = 16.sp,
-                    fontWeight = FontWeight.Medium
-                )
-                
-                Spacer(modifier = Modifier.height(8.dp))
-                
-                LazyRow(
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    items((1..6).toList()) { blocks ->
-                        FilterChip(
-                            onClick = { selectedBlocks = blocks },
-                            label = { Text("$blocks") },
-                            selected = blocks == selectedBlocks,
-                            modifier = Modifier.size(48.dp)
-                        )
-                    }
-                }
-                
-                Spacer(modifier = Modifier.height(20.dp))
-                
-                // Block duration
-                Text(
-                    text = "Block duration: $selectedBlockDuration minutes",
-                    fontSize = 16.sp,
-                    fontWeight = FontWeight.Medium
-                )
-                
-                Spacer(modifier = Modifier.height(8.dp))
-                
-                LazyRow(
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    items(listOf(30, 45, 60, 90, 120)) { duration ->
-                        FilterChip(
-                            onClick = { selectedBlockDuration = duration },
-                            label = { 
-                                Text(
-                                    text = when (duration) {
-                                        30 -> "30m"
-                                        45 -> "45m"
-                                        60 -> "1h"
-                                        90 -> "1.5h"
-                                        120 -> "2h"
-                                        else -> "${duration}m"
-                                    }
-                                )
-                            },
-                            selected = duration == selectedBlockDuration,
-                            modifier = Modifier.widthIn(min = 48.dp)
-                        )
-                    }
-                }
-                
-                Text(
-                    text = "Total time per day: ${selectedBlocks * selectedBlockDuration} minutes (${selectedBlocks * selectedBlockDuration / 60.0} hours)",
-                    fontSize = 12.sp,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-                
-                Spacer(modifier = Modifier.height(16.dp))
-                
-                // Summary
-                Card(
-                    modifier = Modifier.fillMaxWidth(),
-                    colors = CardDefaults.cardColors(
-                        containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f)
-                    )
-                ) {
-                    Column(
-                        modifier = Modifier.padding(12.dp)
-                    ) {
-                        Text(
-                            text = "📊 Schedule Summary",
-                            fontSize = 14.sp,
-                            fontWeight = FontWeight.Medium
-                        )
-                        Spacer(modifier = Modifier.height(4.dp))
-                        Text(
-                            text = "• Exactly $selectedBlocks blocks every day",
-                            fontSize = 12.sp
-                        )
-                        Text(
-                            text = "• Total: ${selectedBlocks * selectedHorizon} study blocks",
-                            fontSize = 12.sp
-                        )
-                        Text(
-                            text = "• Duration: $selectedHorizon days",
-                            fontSize = 12.sp
-                        )
-                        Text(
-                            text = "• Block length: $selectedBlockDuration minutes each",
-                            fontSize = 12.sp
-                        )
-                    }
-                }
-            }
-        },
-        confirmButton = {
-            Button(
-                onClick = { onGenerate(selectedBlocks, selectedHorizon, selectedBlockDuration) }
-            ) {
-                Icon(Icons.Default.Refresh, contentDescription = null)
-                Spacer(modifier = Modifier.width(8.dp))
-                Text("Generate Schedule")
-            }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss) {
-                Text("Cancel")
-            }
-        }
-    )
-}
 
 @Composable
 fun ScheduleResultDialog(

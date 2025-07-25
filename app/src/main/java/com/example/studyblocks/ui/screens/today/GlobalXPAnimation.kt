@@ -24,31 +24,80 @@ fun GlobalXPAnimation(
     tapY: Float,
     onAnimationComplete: () -> Unit
 ) {
-    var animationVisible by remember { mutableStateOf(true) }
+    // Animation phases
+    var animationPhase by remember { mutableStateOf(0) } // 0: start, 1: rise, 2: fade
+    var hasStarted by remember { mutableStateOf(false) }
     
     LaunchedEffect(Unit) {
-        animationVisible = true
-        kotlinx.coroutines.delay(1500)
-        animationVisible = false
-        onAnimationComplete()
+        // Only start animation if not already started (prevents restart on recomposition)
+        if (!hasStarted) {
+            hasStarted = true
+            
+            // Phase 1: Initial bounce (0-200ms)
+            animationPhase = 1
+            kotlinx.coroutines.delay(200)
+            
+            // Phase 2: Rise and fade (200-1500ms)  
+            animationPhase = 2
+            kotlinx.coroutines.delay(1300)
+            
+            // Complete animation
+            onAnimationComplete()
+        }
     }
 
-    val alpha by animateFloatAsState(
-        targetValue = if (animationVisible) 1f else 0f,
-        animationSpec = tween(1500, easing = LinearOutSlowInEasing)
-    )
-    
+    // Smooth continuous rising animation
     val offsetY by animateFloatAsState(
-        targetValue = if (animationVisible) -120f else 0f,
-        animationSpec = tween(1500, easing = FastOutSlowInEasing)
+        targetValue = when (animationPhase) {
+            0 -> 0f
+            1 -> -15f // Initial slight upward movement
+            else -> -120f // Final upward position - continues moving until end
+        },
+        animationSpec = when (animationPhase) {
+            1 -> spring(
+                dampingRatio = Spring.DampingRatioMediumBouncy,
+                stiffness = Spring.StiffnessHigh
+            )
+            else -> tween(
+                durationMillis = 1300, // Match the fade duration
+                easing = LinearOutSlowInEasing // Smooth continuous movement
+            )
+        },
+        label = "offsetY"
     )
     
+    // Scale with initial bounce effect
     val scale by animateFloatAsState(
-        targetValue = if (animationVisible) 1.0f else 1.5f,
+        targetValue = when (animationPhase) {
+            0 -> 0.8f
+            1 -> 1.3f // Bounce up
+            else -> 1.0f // Settle to normal
+        },
         animationSpec = spring(
             dampingRatio = Spring.DampingRatioMediumBouncy,
-            stiffness = Spring.StiffnessLow
-        )
+            stiffness = Spring.StiffnessHigh
+        ),
+        label = "scale"
+    )
+    
+    // Alpha with smooth fade in and out
+    val alpha by animateFloatAsState(
+        targetValue = when (animationPhase) {
+            0 -> 1f
+            1 -> 1f // Fully visible during bounce
+            else -> 0f // Fade out during rise
+        },
+        animationSpec = when (animationPhase) {
+            2 -> tween(
+                durationMillis = 1000,
+                easing = LinearOutSlowInEasing
+            )
+            else -> tween(
+                durationMillis = 200,
+                easing = FastOutSlowInEasing
+            )
+        },
+        label = "alpha"
     )
 
     val density = LocalDensity.current

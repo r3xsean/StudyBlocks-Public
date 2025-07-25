@@ -1,0 +1,133 @@
+package com.example.studyblocks.ui.screens.onboarding
+
+import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
+import com.example.studyblocks.data.local.dao.UserDao
+import com.example.studyblocks.data.model.Subject
+import com.example.studyblocks.data.model.OnboardingSchedulePreferences
+import com.example.studyblocks.data.model.SchedulePreferences
+import com.example.studyblocks.repository.StudyRepository
+import com.example.studyblocks.repository.SchedulingResult
+import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.launch
+import javax.inject.Inject
+
+@HiltViewModel
+class OnboardingViewModel @Inject constructor(
+    private val studyRepository: StudyRepository,
+    private val userDao: UserDao
+) : ViewModel() {
+    
+    private val _isLoading = MutableStateFlow(false)
+    val isLoading: StateFlow<Boolean> = _isLoading.asStateFlow()
+    
+    private val _onboardingComplete = MutableStateFlow(false)
+    val onboardingComplete: StateFlow<Boolean> = _onboardingComplete.asStateFlow()
+    
+    private val _error = MutableStateFlow<String?>(null)
+    val error: StateFlow<String?> = _error.asStateFlow()
+    
+    private val _scheduleResult = MutableStateFlow<SchedulingResult?>(null)
+    val scheduleResult: StateFlow<SchedulingResult?> = _scheduleResult.asStateFlow()
+    
+    private var pendingSubjects: List<Subject> = emptyList()
+    private var pendingPreferences: OnboardingSchedulePreferences? = null
+    
+    init {
+        println("DEBUG OnboardingViewModel: OnboardingViewModel initialized - Instance: ${this.hashCode()}")
+    }
+    
+    fun setSubjects(subjects: List<Subject>) {
+        pendingSubjects = subjects
+        println("DEBUG OnboardingViewModel: Set ${subjects.size} pending subjects - Instance: ${this.hashCode()}")
+        subjects.forEach { println("DEBUG OnboardingViewModel: Subject: ${it.name}") }
+    }
+    
+    fun setSchedulePreferences(preferences: OnboardingSchedulePreferences) {
+        pendingPreferences = preferences
+        println("DEBUG OnboardingViewModel: Set schedule preferences: $preferences - Instance: ${this.hashCode()}")
+    }
+    
+    fun completeOnboarding(userId: String) {
+        viewModelScope.launch {
+            try {
+                _isLoading.value = true
+                _error.value = null
+                
+                println("DEBUG OnboardingViewModel: Starting onboarding completion for userId: $userId - Instance: ${this.hashCode()}")
+                println("DEBUG OnboardingViewModel: pendingSubjects count: ${pendingSubjects.size}")
+                println("DEBUG OnboardingViewModel: pendingPreferences: $pendingPreferences")
+                
+                // Save subjects with userId
+                val subjectsWithUserId = pendingSubjects.map { subject ->
+                    subject.copy(userId = userId)
+                }
+                
+                println("DEBUG OnboardingViewModel: Saving ${subjectsWithUserId.size} subjects")
+                subjectsWithUserId.forEach { subject ->
+                    studyRepository.insertSubject(subject)
+                    println("DEBUG OnboardingViewModel: Saved subject: ${subject.name}")
+                }
+                
+                // Save schedule preferences
+                pendingPreferences?.let { prefs ->
+                    val schedulePreferences = prefs.toSchedulePreferences(userId)
+                    studyRepository.insertSchedulePreferences(schedulePreferences)
+                    println("DEBUG OnboardingViewModel: Saved schedule preferences: $schedulePreferences")
+                }
+                
+                // Update user to mark onboarding as complete
+                val currentUser = userDao.getUserById(userId)
+                println("DEBUG OnboardingViewModel: Current user before update: $currentUser")
+                currentUser?.let { user ->
+                    val updatedUser = user.copy(hasCompletedOnboarding = true)
+                    userDao.insertUser(updatedUser)
+                    println("DEBUG OnboardingViewModel: Updated user to: $updatedUser")
+                }
+                
+                // Generate initial schedule after subjects and preferences are saved
+                if (subjectsWithUserId.isNotEmpty()) {
+                    try {
+                        println("DEBUG OnboardingViewModel: Generating schedule for ${subjectsWithUserId.size} subjects")
+                        val scheduleResult = studyRepository.generateNewSchedule(userId)
+                        _scheduleResult.value = scheduleResult
+                        println("DEBUG OnboardingViewModel: Schedule generation completed with ${scheduleResult.totalBlocks} blocks")
+                    } catch (scheduleError: Exception) {
+                        // Log but don't fail onboarding if schedule generation fails
+                        // The user can regenerate schedule later from subjects screen
+                        println("DEBUG OnboardingViewModel: Schedule generation failed: ${scheduleError.message}")
+                    }
+                }
+                
+                _onboardingComplete.value = true
+                println("DEBUG OnboardingViewModel: Onboarding completion set to true")
+                
+            } catch (e: Exception) {
+                _error.value = "Failed to complete onboarding: ${e.message}"
+                println("DEBUG OnboardingViewModel: Error completing onboarding: ${e.message}")
+                e.printStackTrace()
+            } finally {
+                _isLoading.value = false
+                println("DEBUG OnboardingViewModel: Onboarding completion process finished")
+            }
+        }
+    }
+    
+    fun clearError() {
+        _error.value = null
+    }
+    
+    fun clearScheduleResult() {
+        _scheduleResult.value = null
+    }
+    
+    fun resetOnboardingState() {
+        _onboardingComplete.value = false
+        _scheduleResult.value = null
+        pendingSubjects = emptyList()
+        pendingPreferences = null
+    }
+}

@@ -11,10 +11,11 @@ data class User(
     val email: String,
     val displayName: String,
     val profilePictureUrl: String? = null,
-    val defaultBlockDuration: Int = 30, // minutes
-    val preferredBlocksPerDay: Int = 3, // preferred number of blocks per day
     val globalXp: Int = 0,
     val globalLevel: Int = 1,
+    val hasCompletedOnboarding: Boolean = false,
+    val defaultBlockDuration: Int = 25,
+    val preferredBlocksPerDay: Int = 3,
     val createdAt: LocalDateTime = LocalDateTime.now(),
     val lastSyncAt: LocalDateTime = LocalDateTime.now(),
     val isSignedIn: Boolean = false
@@ -22,8 +23,6 @@ data class User(
     init {
         require(email.isNotBlank()) { "Email cannot be blank" }
         require(displayName.isNotBlank()) { "Display name cannot be blank" }
-        require(defaultBlockDuration in 15..120) { "Default block duration must be between 15 and 120 minutes" }
-        require(preferredBlocksPerDay in 1..8) { "Preferred blocks per day must be between 1 and 8" }
         require(globalXp >= 0) { "Global XP cannot be negative" }
         require(globalLevel >= 1) { "Global level must be at least 1" }
     }

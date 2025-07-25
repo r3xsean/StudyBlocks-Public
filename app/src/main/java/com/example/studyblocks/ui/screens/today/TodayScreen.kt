@@ -4,6 +4,7 @@ import androidx.compose.animation.*
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
@@ -17,6 +18,7 @@ import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.FiberManualRecord
+import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -38,6 +40,9 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavController
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.layout.positionInRoot
 import com.example.studyblocks.data.model.StudyBlock
 import com.example.studyblocks.data.model.Subject
 import com.example.studyblocks.data.model.getStatus
@@ -60,7 +65,16 @@ fun TodayScreen(
     val isLoading by viewModel.isLoading.collectAsState()
     val showCustomBlockDialog by viewModel.showCustomBlockDialog.collectAsState()
     val allSubjects by viewModel.allSubjects.collectAsState()
+    val allStudyBlocks by viewModel.allStudyBlocks.collectAsState()
     val xpAnimations by viewModel.xpAnimations.collectAsState()
+    val isRescheduling by viewModel.isRescheduling.collectAsState()
+
+    // Clear animations when screen is disposed (navigating away)
+    DisposableEffect(Unit) {
+        onDispose {
+            viewModel.clearAllXPAnimations()
+        }
+    }
 
     Box(
         modifier = Modifier
@@ -85,6 +99,28 @@ fun TodayScreen(
                     )
                 },
                 actions = {
+                    // Reschedule missed blocks button (only show if there are overdue blocks)
+                    if (completionStats.overdue > 0 && viewModel.isSelectedDateToday()) {
+                        IconButton(
+                            onClick = { viewModel.rescheduleWithMissedBlocks() },
+                            enabled = !isRescheduling
+                        ) {
+                            if (isRescheduling) {
+                                CircularProgressIndicator(
+                                    modifier = Modifier.size(20.dp),
+                                    color = MaterialTheme.colorScheme.primary,
+                                    strokeWidth = 2.dp
+                                )
+                            } else {
+                                Icon(
+                                    Icons.Default.Refresh, 
+                                    contentDescription = "Reschedule Missed Blocks",
+                                    tint = MaterialTheme.colorScheme.error
+                                )
+                            }
+                        }
+                    }
+                    
                     IconButton(
                         onClick = { viewModel.showAddCustomBlockDialog() }
                     ) {
@@ -122,6 +158,7 @@ fun TodayScreen(
                 // Study Blocks List
                 StudyBlocksList(
                     studyBlocks = studyBlocks,
+                    allStudyBlocks = allStudyBlocks,
                     isLoading = isLoading,
                     onBlockToggle = { block, offset ->
                         viewModel.toggleBlockCompletion(block, offset.x, offset.y)
@@ -245,6 +282,7 @@ fun WeekDateItem(
 @Composable
 fun StudyBlocksList(
     studyBlocks: List<StudyBlock>,
+    allStudyBlocks: List<StudyBlock>,
     isLoading: Boolean,
     onBlockToggle: (StudyBlock, Offset) -> Unit
 ) {
@@ -256,9 +294,21 @@ fun StudyBlocksList(
         ) {
             items(studyBlocks) { block ->
                 val itemIndex = studyBlocks.indexOf(block)
+                // Calculate subject-specific block numbering using all blocks for the subject
+                val allSubjectBlocks = allStudyBlocks.filter { it.subjectId == block.subjectId && !it.isCustomBlock }
+                val subjectBlockNumber = if (block.isCustomBlock) 0 else {
+                    // Use block ID to find the correct position instead of object equality
+                    val sortedBlocks = allSubjectBlocks.sortedBy { it.blockNumber }
+                    val blockIndex = sortedBlocks.indexOfFirst { it.id == block.id }
+                    if (blockIndex >= 0) blockIndex + 1 else block.blockNumber
+                }
+                val totalSubjectBlocks = if (block.isCustomBlock) 0 else allSubjectBlocks.size
+                
                 StaggeredAnimation(itemIndex = itemIndex) {
                     StudyBlockCard(
                         studyBlock = block,
+                        subjectBlockNumber = subjectBlockNumber,
+                        totalSubjectBlocks = totalSubjectBlocks,
                         isLoading = isLoading,
                         onToggle = onBlockToggle
                     )
@@ -271,6 +321,8 @@ fun StudyBlocksList(
 @Composable
 fun StudyBlockCard(
     studyBlock: StudyBlock,
+    subjectBlockNumber: Int = studyBlock.blockNumber,
+    totalSubjectBlocks: Int = studyBlock.totalBlocksForSubject,
     isLoading: Boolean,
     onToggle: (StudyBlock, Offset) -> Unit
 ) {
@@ -300,9 +352,9 @@ fun StudyBlockCard(
             modifier = Modifier
                 .fillMaxWidth()
                 .onGloballyPositioned { cardCoords = it }
-                .pointerInput(isLoading, studyBlock.canComplete, studyBlock.isCompleted) {
+                .pointerInput(studyBlock.canComplete, studyBlock.isCompleted) {
                     detectTapGestures { offset ->
-                        if (!isLoading && (studyBlock.canComplete || studyBlock.isCompleted)) {
+                        if (studyBlock.canComplete || studyBlock.isCompleted) {
                             val rootPos = cardCoords?.positionInRoot() ?: Offset.Zero
                             onToggle(studyBlock, rootPos + offset)
                         }
@@ -342,7 +394,7 @@ fun StudyBlockCard(
                     text = if (studyBlock.isCustomBlock) {
                         "Custom Block • ${studyBlock.durationMinutes} min"
                     } else {
-                        "Block ${studyBlock.blockNumber} out of ${studyBlock.totalBlocksForSubject} • ${studyBlock.durationMinutes} min"
+                        "Block $subjectBlockNumber out of $totalSubjectBlocks • ${studyBlock.durationMinutes} min"
                     },
                     fontSize = 14.sp,
                     color = contentColor.copy(alpha = 0.7f),
@@ -458,7 +510,7 @@ fun AddCustomBlockDialog(
                         },
                         modifier = Modifier
                             .fillMaxWidth()
-                            .menuAnchor()
+                            .menuAnchor(MenuAnchorType.PrimaryNotEditable)
                     )
                     
                     ExposedDropdownMenu(

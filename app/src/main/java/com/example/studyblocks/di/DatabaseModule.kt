@@ -7,6 +7,7 @@ import com.example.studyblocks.data.local.dao.SubjectDao
 import com.example.studyblocks.data.local.dao.StudyBlockDao
 import com.example.studyblocks.data.local.dao.StudySessionDao
 import com.example.studyblocks.data.local.dao.UserDao
+import com.example.studyblocks.data.local.dao.SchedulePreferencesDao
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -48,5 +49,10 @@ object DatabaseModule {
     @Provides
     fun provideStudySessionDao(database: StudyBlocksDatabase): StudySessionDao {
         return database.studySessionDao()
+    }
+    
+    @Provides
+    fun provideSchedulePreferencesDao(database: StudyBlocksDatabase): SchedulePreferencesDao {
+        return database.schedulePreferencesDao()
     }
 }

@@ -32,6 +32,9 @@ class TodayViewModel @Inject constructor(
     private val _isLoading = MutableStateFlow(false)
     val isLoading = _isLoading.asStateFlow()
     
+    private val _isRescheduling = MutableStateFlow(false)
+    val isRescheduling = _isRescheduling.asStateFlow()
+    
     private val _showCustomBlockDialog = MutableStateFlow(false)
     val showCustomBlockDialog = _showCustomBlockDialog.asStateFlow()
     
@@ -49,9 +52,17 @@ class TodayViewModel @Inject constructor(
     private val _xpAnimations = MutableStateFlow<List<XPAnimation>>(emptyList())
     val xpAnimations = _xpAnimations.asStateFlow()
     
+    // Track blocks currently being processed to prevent race conditions
+    private val processingBlocks = mutableSetOf<String>()
+    
+    // Track cooldown timestamps for each block (300ms cooldown to match CompletionAnimation)
+    private val blockCooldowns = mutableMapOf<String, Long>()
+    private val BLOCK_COOLDOWN_MS = 300L // Match CompletionAnimation duration
+    
     init {
         loadCurrentUser()
         generateWeekDates()
+        checkAndGenerateScheduleIfNeeded()
     }
     
     val studyBlocksForSelectedDate: StateFlow<List<StudyBlock>> = combine(
@@ -74,6 +85,21 @@ class TodayViewModel @Inject constructor(
     val allSubjects: StateFlow<List<Subject>> = _currentUser.flatMapLatest { user ->
         if (user != null) {
             studyRepository.getAllSubjects(user.id)
+        } else {
+            flowOf(emptyList())
+        }
+    }.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5000),
+        initialValue = emptyList()
+    )
+    
+    // Get all blocks for all subjects to calculate correct block numbering
+    val allStudyBlocks: StateFlow<List<StudyBlock>> = _currentUser.flatMapLatest { user ->
+        if (user != null) {
+            val startDate = LocalDate.now()
+            val endDate = startDate.plusDays(60) // Look ahead for schedule horizon
+            studyRepository.getBlocksForDateRange(user.id, startDate, endDate)
         } else {
             flowOf(emptyList())
         }
@@ -106,6 +132,36 @@ class TodayViewModel @Inject constructor(
         viewModelScope.launch {
             studyRepository.getCurrentUserFlow().collect { user ->
                 _currentUser.value = user
+            }
+        }
+    }
+    
+    private fun checkAndGenerateScheduleIfNeeded() {
+        viewModelScope.launch {
+            // Wait for user to be loaded, then check if schedule needs to be generated
+            _currentUser.collect { user ->
+                if (user != null && user.hasCompletedOnboarding) {
+                    try {
+                        val subjects = studyRepository.getAllSubjects(user.id).first()
+                        val startDate = LocalDate.now()
+                        val endDate = startDate.plusDays(7) // Look ahead 1 week
+                        val blocks = studyRepository.getBlocksForDateRange(user.id, startDate, endDate).first()
+                        
+                        // If user has subjects but no blocks, generate schedule
+                        if (subjects.isNotEmpty() && blocks.isEmpty()) {
+                            try {
+                                studyRepository.generateNewSchedule(user.id)
+                            } catch (e: Exception) {
+                                // Log error but don't crash
+                                println("Auto-schedule generation failed: ${e.message}")
+                            }
+                        }
+                    } catch (e: Exception) {
+                        // Log error but don't crash
+                        println("Failed to check schedule status: ${e.message}")
+                    }
+                    return@collect // Only check once when user is loaded
+                }
             }
         }
     }
@@ -171,6 +227,28 @@ class TodayViewModel @Inject constructor(
     
     fun toggleBlockCompletion(block: StudyBlock, tapX: Float = 0f, tapY: Float = 0f) {
         viewModelScope.launch {
+            val currentTime = System.currentTimeMillis()
+            
+            // Clean up old cooldowns periodically to prevent memory buildup
+            clearOldCooldowns()
+            
+            // Check cooldown - prevent spamming by enforcing minimum time between taps
+            synchronized(blockCooldowns) {
+                val lastTapTime = blockCooldowns[block.id] ?: 0L
+                if (currentTime - lastTapTime < BLOCK_COOLDOWN_MS) {
+                    return@launch // Block is in cooldown, ignore this tap
+                }
+                blockCooldowns[block.id] = currentTime
+            }
+            
+            // Prevent concurrent operations on the same block
+            synchronized(processingBlocks) {
+                if (processingBlocks.contains(block.id)) {
+                    return@launch // Block is already being processed, ignore this tap
+                }
+                processingBlocks.add(block.id)
+            }
+            
             _isLoading.value = true
             try {
                 val xpChange = if (block.isCompleted) {
@@ -190,22 +268,34 @@ class TodayViewModel @Inject constructor(
                         System.currentTimeMillis()
                     )
                     _xpAnimations.value = _xpAnimations.value + newXPAnimation
-
-                    // Remove after animation duration
-                    kotlinx.coroutines.delay(2000)
-                    _xpAnimations.value =
-                        _xpAnimations.value.filter { it.timestamp != newXPAnimation.timestamp }
                 }
             } catch (e: Exception) {
                 // Handle error
             } finally {
                 _isLoading.value = false
+                // Remove from processing set when done
+                synchronized(processingBlocks) {
+                    processingBlocks.remove(block.id)
+                }
             }
         }
     }
     
     fun clearXPAnimation(timestamp: Long) {
         _xpAnimations.value = _xpAnimations.value.filter { it.timestamp != timestamp }
+    }
+    
+    fun clearAllXPAnimations() {
+        _xpAnimations.value = emptyList()
+    }
+    
+    private fun clearOldCooldowns() {
+        val currentTime = System.currentTimeMillis()
+        synchronized(blockCooldowns) {
+            blockCooldowns.entries.removeAll { (_, lastTapTime) ->
+                currentTime - lastTapTime > BLOCK_COOLDOWN_MS
+            }
+        }
     }
     
     fun getFormattedSelectedDate(): String {
@@ -252,6 +342,26 @@ class TodayViewModel @Inject constructor(
                 }
             }
         }
+    }
+    
+    fun rescheduleWithMissedBlocks() {
+        viewModelScope.launch {
+            val user = _currentUser.value ?: return@launch
+            
+            _isRescheduling.value = true
+            try {
+                studyRepository.rescheduleWithMissedBlocks(user.id)
+            } catch (e: Exception) {
+                // Handle error - could show a snackbar or error dialog
+                println("Failed to reschedule missed blocks: ${e.message}")
+            } finally {
+                _isRescheduling.value = false
+            }
+        }
+    }
+    
+    fun hasOverdueBlocks(): Boolean {
+        return studyBlocksForSelectedDate.value.any { it.isOverdue }
     }
 }
 

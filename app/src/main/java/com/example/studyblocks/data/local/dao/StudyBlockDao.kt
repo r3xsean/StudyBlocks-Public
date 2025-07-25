@@ -17,6 +17,9 @@ interface StudyBlockDao {
     @Query("SELECT * FROM study_blocks WHERE subjectId = :subjectId ORDER BY scheduledDate ASC")
     fun getBlocksForSubject(subjectId: String): Flow<List<StudyBlock>>
     
+    @Query("SELECT * FROM study_blocks WHERE userId = :userId ORDER BY scheduledDate ASC")
+    fun getAllBlocksForUser(userId: String): Flow<List<StudyBlock>>
+    
     @Query("SELECT * FROM study_blocks WHERE id = :id")
     suspend fun getBlockById(id: String): StudyBlock?
     
