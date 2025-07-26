@@ -2,6 +2,7 @@ package com.example.studyblocks.scheduling
 
 import com.example.studyblocks.data.model.StudyBlock
 import com.example.studyblocks.data.model.Subject
+import com.example.studyblocks.data.model.SubjectGrouping
 import java.time.DayOfWeek
 import java.time.LocalDate
 import java.time.temporal.ChronoUnit
@@ -137,7 +138,8 @@ class StudyScheduler {
         scheduleHorizon: Int = 21, // days
         blocksPerWeekday: Int = 3, // user's preferred blocks per weekday
         blocksPerWeekend: Int = 2, // user's preferred blocks per weekend day
-        blockDurationMinutes: Int = 60 // duration for each block
+        blockDurationMinutes: Int = 60, // duration for each block
+        subjectGrouping: SubjectGrouping = SubjectGrouping.BALANCED
     ): List<StudyBlock> {
         val allStudyBlocks = mutableListOf<StudyBlock>()
         val scheduleMap = mutableMapOf<LocalDate, MutableList<StudyBlock>>()
@@ -184,12 +186,16 @@ class StudyScheduler {
         }
         
         
-        // Shuffle blocks to mix subjects throughout the schedule
-        val shuffledBlocks = allStudyBlocks.shuffled()
+        // Apply subject grouping strategy before distribution
+        val organizedBlocks = when (subjectGrouping) {
+            SubjectGrouping.MOST_GROUPED -> organizeBlocksMostGrouped(allStudyBlocks)
+            SubjectGrouping.BALANCED -> allStudyBlocks.shuffled()
+            SubjectGrouping.LEAST_GROUPED -> organizeBlocksLeastGrouped(allStudyBlocks)
+        }
         
         // Force distribute to ensure daily capacity is met with weekday/weekend awareness
         return forceDistributeWithWeekdayWeekendCapacity(
-            allStudyBlocks = shuffledBlocks,
+            allStudyBlocks = organizedBlocks,
             scheduleMap = scheduleMap,
             blocksPerWeekday = blocksPerWeekday,
             blocksPerWeekend = blocksPerWeekend,
@@ -402,6 +408,32 @@ class StudyScheduler {
         }
         
         return dates.distinct().sorted()
+    }
+    
+    private fun organizeBlocksMostGrouped(blocks: List<StudyBlock>): List<StudyBlock> {
+        // Group all blocks by subject ID, then concatenate them
+        // This creates the pattern: aaa bbb ccc aaa bbb ccc
+        return blocks.groupBy { it.subjectId }
+            .values
+            .flatten()
+    }
+    
+    private fun organizeBlocksLeastGrouped(blocks: List<StudyBlock>): List<StudyBlock> {
+        // Create the most even distribution possible
+        // Round-robin through subjects: abc abc abc abc abc abc
+        val subjectGroups = blocks.groupBy { it.subjectId }
+        val maxBlocksPerSubject = subjectGroups.values.maxOfOrNull { it.size } ?: 0
+        val result = mutableListOf<StudyBlock>()
+        
+        for (round in 0 until maxBlocksPerSubject) {
+            for (subjectBlocks in subjectGroups.values) {
+                if (round < subjectBlocks.size) {
+                    result.add(subjectBlocks[round])
+                }
+            }
+        }
+        
+        return result
     }
 }
 

@@ -2,11 +2,13 @@ package com.example.studyblocks.ui.screens.today
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import androidx.navigation.NavController
 import com.example.studyblocks.data.model.StudyBlock
 import com.example.studyblocks.data.model.Subject
 import com.example.studyblocks.data.model.User
 import com.example.studyblocks.data.model.getStatus
 import com.example.studyblocks.repository.StudyRepository
+import com.example.studyblocks.navigation.Screen
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.*
@@ -37,6 +39,7 @@ class TodayViewModel @Inject constructor(
     
     private val _showCustomBlockDialog = MutableStateFlow(false)
     val showCustomBlockDialog = _showCustomBlockDialog.asStateFlow()
+    
     
     private val _weekDates = MutableStateFlow<List<WeekDate>>(emptyList())
     val weekDates = _weekDates.asStateFlow()
@@ -128,10 +131,45 @@ class TodayViewModel @Inject constructor(
         initialValue = CompletionStats()
     )
     
+    // Track if schedule is complete to show confidence dialog
+    private var hasShownConfidenceDialog = false
+    
+    // Navigation callback for schedule completion
+    private var onNavigateToConfidenceReevaluation: (() -> Unit)? = null
+    
     private fun loadCurrentUser() {
         viewModelScope.launch {
             studyRepository.getCurrentUserFlow().collect { user ->
                 _currentUser.value = user
+            }
+        }
+    }
+    
+    private fun checkForScheduleCompletionAfterBlockCompletion() {
+        viewModelScope.launch {
+            val user = _currentUser.value
+            if (user != null && user.hasCompletedOnboarding && !hasShownConfidenceDialog) {
+                // Get current blocks safely
+                try {
+                    val blocks = allStudyBlocks.value
+                    checkForScheduleCompletion(blocks)
+                } catch (e: Exception) {
+                    // Handle error silently
+                }
+            }
+        }
+    }
+    
+    private fun checkForScheduleCompletion(allBlocks: List<StudyBlock>) {
+        // Only consider scheduled blocks (not custom blocks) for schedule completion
+        val scheduledBlocks = allBlocks.filter { !it.isCustomBlock }
+        
+        if (scheduledBlocks.isNotEmpty()) {
+            val allScheduledBlocksCompleted = scheduledBlocks.all { it.isCompleted }
+            
+            if (allScheduledBlocksCompleted) {
+                hasShownConfidenceDialog = true
+                onNavigateToConfidenceReevaluation?.invoke()
             }
         }
     }
@@ -252,9 +290,21 @@ class TodayViewModel @Inject constructor(
             _isLoading.value = true
             try {
                 val xpChange = if (block.isCompleted) {
+                    // Delete associated study sessions when marking incomplete
+                    studyRepository.deleteSessionsForBlock(block.id)
                     val xp = studyRepository.markBlockIncomplete(block.id)
                     -xp // Negative for subtraction
                 } else {
+                    // Create a completed study session when completing a block
+                    val user = _currentUser.value
+                    if (user != null) {
+                        studyRepository.createCompletedStudySession(
+                            studyBlockId = block.id,
+                            subjectId = block.subjectId,
+                            userId = user.id,
+                            actualDurationMinutes = block.durationMinutes
+                        )
+                    }
                     studyRepository.markBlockComplete(block.id)
                 }
 
@@ -268,6 +318,11 @@ class TodayViewModel @Inject constructor(
                         System.currentTimeMillis()
                     )
                     _xpAnimations.value = _xpAnimations.value + newXPAnimation
+                }
+                
+                // Check for schedule completion after completing a block
+                if (!block.isCompleted && xpChange > 0) {
+                    checkForScheduleCompletionAfterBlockCompletion()
                 }
             } catch (e: Exception) {
                 // Handle error
@@ -362,6 +417,26 @@ class TodayViewModel @Inject constructor(
     
     fun hasOverdueBlocks(): Boolean {
         return studyBlocksForSelectedDate.value.any { it.isOverdue }
+    }
+    
+    fun setNavigationCallback(onNavigate: () -> Unit) {
+        onNavigateToConfidenceReevaluation = onNavigate
+    }
+    
+    
+    fun updateSubjectConfidences(confidenceUpdates: Map<String, Int>) {
+        viewModelScope.launch {
+            try {
+                confidenceUpdates.forEach { (subjectId, confidence) ->
+                    studyRepository.updateSubjectConfidence(subjectId, confidence)
+                }
+                // Reset the dialog flag so it can show again for future schedules
+                hasShownConfidenceDialog = false
+            } catch (e: Exception) {
+                // Handle error
+                println("Failed to update subject confidences: ${e.message}")
+            }
+        }
     }
 }
 

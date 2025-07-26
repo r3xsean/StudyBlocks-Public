@@ -25,9 +25,13 @@ import com.example.studyblocks.ui.screens.subjects.SubjectDetailScreen
 import com.example.studyblocks.ui.screens.subjects.ScheduleSettingsScreen
 import com.example.studyblocks.ui.screens.timer.TimerScreen
 import com.example.studyblocks.ui.screens.today.TodayScreen
+import com.example.studyblocks.ui.screens.today.ConfidenceReevaluationScreen
 import com.example.studyblocks.ui.screens.onboarding.OnboardingWelcomeScreen
 import com.example.studyblocks.ui.screens.onboarding.OnboardingSubjectsScreen
-import com.example.studyblocks.ui.screens.onboarding.OnboardingPreferencesScreen
+import com.example.studyblocks.ui.screens.onboarding.OnboardingScheduleHorizonScreen
+import com.example.studyblocks.ui.screens.onboarding.OnboardingDailyBlocksScreen
+import com.example.studyblocks.ui.screens.onboarding.OnboardingBlockDurationScreen
+import com.example.studyblocks.ui.screens.onboarding.OnboardingSubjectGroupingScreen
 import com.example.studyblocks.ui.screens.onboarding.OnboardingScheduleResultDialog
 import com.example.studyblocks.repository.SchedulingResult
 
@@ -49,6 +53,40 @@ fun StudyBlocksNavigation(
     println("DEBUG: StudyBlocksNavigation - needsOnboarding = $needsOnboarding")
     println("DEBUG: StudyBlocksNavigation - startDestination = $startDestination")
     
+    // Handle navigation when onboarding status changes
+    LaunchedEffect(needsOnboarding, isAuthenticated) {
+        if (isAuthenticated && !needsOnboarding) {
+            // User has completed onboarding, navigate to main app
+            val currentRoute = navController.currentBackStackEntry?.destination?.route
+            println("DEBUG: Navigation - Current route: $currentRoute, needsOnboarding: $needsOnboarding")
+            if (currentRoute?.startsWith("onboarding") == true) {
+                println("DEBUG: Navigation - Onboarding completed, navigating to Today screen from route: $currentRoute")
+                navController.navigate(Screen.Today.route) {
+                    // Clear the entire backstack to prevent going back to onboarding
+                    popUpTo(0) { inclusive = true }
+                }
+            }
+        }
+    }
+    
+    // Additional effect to handle redo onboarding completion from any onboarding screen
+    LaunchedEffect(needsOnboarding) {
+        // Only navigate if authenticated and no longer needs onboarding
+        if (isAuthenticated && !needsOnboarding) {
+            val currentRoute = navController.currentBackStackEntry?.destination?.route
+            println("DEBUG: Navigation - Checking for onboarding completion navigation: currentRoute=$currentRoute")
+            // If we're currently on any onboarding screen, navigate away
+            if (currentRoute?.startsWith("onboarding") == true) {
+                println("DEBUG: Navigation - Force navigating from onboarding to Today screen")
+                // Small delay to ensure UI state is ready
+                kotlinx.coroutines.delay(100)
+                navController.navigate(Screen.Today.route) {
+                    popUpTo(0) { inclusive = true }
+                }
+            }
+        }
+    }
+    
     NavHost(
         navController = navController,
         startDestination = startDestination,
@@ -66,6 +104,10 @@ fun StudyBlocksNavigation(
         // Main app screens
         composable(Screen.Today.route) {
             TodayScreen(navController = navController)
+        }
+        
+        composable(Screen.ConfidenceReevaluation.route) {
+            ConfidenceReevaluationScreen(navController = navController)
         }
         
         composable(Screen.Subjects.route) {
@@ -99,8 +141,8 @@ fun StudyBlocksNavigation(
             ScheduleSettingsScreen(
                 navController = navController,
                 currentPreferredBlocks = subjectsViewModel.preferredBlocksPerDay.collectAsState().value,
-                onGenerate = { blocksPerWeekday, blocksPerWeekend, horizon, blockDuration ->
-                    subjectsViewModel.generateNewSchedule(blocksPerWeekday, blocksPerWeekend, horizon, blockDuration)
+                onGenerate = { blocksPerWeekday, blocksPerWeekend, horizon, blockDuration, grouping ->
+                    subjectsViewModel.generateNewSchedule(blocksPerWeekday, blocksPerWeekend, horizon, blockDuration, grouping)
                 },
                 viewModel = subjectsViewModel
             )
@@ -119,23 +161,78 @@ fun StudyBlocksNavigation(
                 navController = navController,
                 onSubjectsCreated = { subjects ->
                     onboardingViewModel.setSubjects(subjects)
+                    navController.navigate(Screen.OnboardingScheduleHorizon.route)
                 }
             )
         }
         
-        composable(Screen.OnboardingPreferences.route) {
+        composable(Screen.OnboardingScheduleHorizon.route) {
+            val context = androidx.compose.ui.platform.LocalContext.current
+            val onboardingViewModel: com.example.studyblocks.ui.screens.onboarding.OnboardingViewModel = 
+                androidx.hilt.navigation.compose.hiltViewModel(context as androidx.activity.ComponentActivity)
+            
+            OnboardingScheduleHorizonScreen(
+                navController = navController,
+                initialWeeks = 3,
+                onWeeksSelected = { weeks ->
+                    onboardingViewModel.setScheduleHorizonWeeks(weeks)
+                },
+                onNext = {
+                    navController.navigate(Screen.OnboardingBlockDuration.route)
+                }
+            )
+        }
+        
+        composable(Screen.OnboardingDailyBlocks.route) {
+            val context = androidx.compose.ui.platform.LocalContext.current
+            val onboardingViewModel: com.example.studyblocks.ui.screens.onboarding.OnboardingViewModel = 
+                androidx.hilt.navigation.compose.hiltViewModel(context as androidx.activity.ComponentActivity)
+            val currentBlockDuration by onboardingViewModel.currentBlockDuration.collectAsState()
+            
+            OnboardingDailyBlocksScreen(
+                navController = navController,
+                initialWeekdayBlocks = 3,
+                initialWeekendBlocks = 2,
+                blockDurationMinutes = currentBlockDuration,
+                onBlocksSelected = { weekday, weekend ->
+                    onboardingViewModel.setDailyBlocks(weekday, weekend)
+                },
+                onNext = {
+                    navController.navigate(Screen.OnboardingSubjectGrouping.route)
+                }
+            )
+        }
+        
+        composable(Screen.OnboardingBlockDuration.route) {
+            val context = androidx.compose.ui.platform.LocalContext.current
+            val onboardingViewModel: com.example.studyblocks.ui.screens.onboarding.OnboardingViewModel = 
+                androidx.hilt.navigation.compose.hiltViewModel(context as androidx.activity.ComponentActivity)
+            
+            OnboardingBlockDurationScreen(
+                navController = navController,
+                initialDuration = 60,
+                onDurationSelected = { duration ->
+                    onboardingViewModel.setBlockDuration(duration)
+                },
+                onNext = {
+                    navController.navigate(Screen.OnboardingDailyBlocks.route)
+                }
+            )
+        }
+        
+        composable(Screen.OnboardingSubjectGrouping.route) {
             val context = androidx.compose.ui.platform.LocalContext.current
             val onboardingViewModel: com.example.studyblocks.ui.screens.onboarding.OnboardingViewModel = 
                 androidx.hilt.navigation.compose.hiltViewModel(context as androidx.activity.ComponentActivity)
             val authViewModel: com.example.studyblocks.auth.AuthViewModel = 
                 androidx.hilt.navigation.compose.hiltViewModel(context as androidx.activity.ComponentActivity)
             
-            OnboardingPreferencesScreen(
+            OnboardingSubjectGroupingScreen(
                 navController = navController,
-                onPreferencesSet = { preferences ->
-                    onboardingViewModel.setSchedulePreferences(preferences)
+                onGroupingSelected = { grouping ->
+                    onboardingViewModel.setSubjectGrouping(grouping)
                 },
-                onComplete = {
+                onNext = {
                     println("DEBUG Navigation: onComplete callback triggered")
                     if (authState is com.example.studyblocks.auth.AuthState.Authenticated) {
                         println("DEBUG Navigation: User is authenticated, starting onboarding completion")
@@ -194,7 +291,11 @@ fun StudyBlocksNavigation(
                         authViewModel.markOnboardingCompleted()
                         println("DEBUG Navigation: Called markOnboardingCompleted() after dialog dismissal")
                         
-                        // Navigation will happen automatically due to needsOnboarding becoming false
+                        // Force navigation to Today screen immediately after marking onboarding complete
+                        println("DEBUG Navigation: Force navigating to Today screen after onboarding completion")
+                        navController.navigate(Screen.Today.route) {
+                            popUpTo(0) { inclusive = true }
+                        }
                     }
                 )
             }
@@ -209,10 +310,13 @@ fun StudyBlocksNavigation(
                     if (!showOnboardingResultDialog && !dialogDismissed) {
                         println("DEBUG Navigation: No schedule result, using fallback navigation")
                         
-                        // Mark onboarding as completed - this will trigger automatic navigation
+                        // Mark onboarding as completed and force navigation
                         authViewModel.markOnboardingCompleted()
                         onboardingViewModel.resetOnboardingState()
-                        println("DEBUG Navigation: Fallback navigation completed")
+                        println("DEBUG Navigation: Fallback - forcing navigation to Today screen")
+                        navController.navigate(Screen.Today.route) {
+                            popUpTo(0) { inclusive = true }
+                        }
                     }
                 }
             }
@@ -232,5 +336,9 @@ sealed class Screen(val route: String) {
     object ScheduleSettings : Screen("schedule_settings")
     object OnboardingWelcome : Screen("onboarding_welcome")
     object OnboardingSubjects : Screen("onboarding_subjects")
-    object OnboardingPreferences : Screen("onboarding_preferences")
+    object OnboardingScheduleHorizon : Screen("onboarding_schedule_horizon")
+    object OnboardingDailyBlocks : Screen("onboarding_daily_blocks")
+    object OnboardingBlockDuration : Screen("onboarding_block_duration")
+    object OnboardingSubjectGrouping : Screen("onboarding_subject_grouping")
+    object ConfidenceReevaluation : Screen("confidence_reevaluation")
 }

@@ -8,12 +8,13 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.CalendarMonth
 import androidx.compose.material.icons.filled.Schedule
 import androidx.compose.material.icons.filled.Timer
 import androidx.compose.material.icons.filled.Weekend
 import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.filled.ViewModule
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -27,19 +28,37 @@ import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.example.studyblocks.repository.SchedulingResult
+import com.example.studyblocks.data.model.SubjectGrouping
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ScheduleSettingsScreen(
     navController: NavController,
     currentPreferredBlocks: Int,
-    onGenerate: (blocksPerWeekday: Int, blocksPerWeekend: Int, horizon: Int, blockDuration: Int) -> Unit,
+    onGenerate: (blocksPerWeekday: Int, blocksPerWeekend: Int, horizon: Int, blockDuration: Int, grouping: SubjectGrouping) -> Unit,
     viewModel: SubjectsViewModel = hiltViewModel()
 ) {
+    // Get current user and schedule preferences
+    val currentUser by viewModel.currentUser.collectAsState()
+    val schedulePreferences by viewModel.schedulePreferences.collectAsState()
+    
+    // Use saved preferences as defaults, falling back to hardcoded values if none exist
     var selectedBlocksWeekday by remember { mutableStateOf(currentPreferredBlocks) }
-    var selectedBlocksWeekend by remember { mutableStateOf(2) } // Default 2 blocks on weekends
-    var selectedHorizonWeeks by remember { mutableStateOf(2) } // Default 2 weeks
-    var selectedBlockDuration by remember { mutableStateOf(60) } // Default 1 hour
+    var selectedBlocksWeekend by remember { mutableStateOf(2) }
+    var selectedHorizonWeeks by remember { mutableStateOf(3) }  
+    var selectedBlockDuration by remember { mutableStateOf(60) }
+    var selectedSubjectGrouping by remember { mutableStateOf(SubjectGrouping.BALANCED) }
+    
+    // Update state when preferences load
+    LaunchedEffect(schedulePreferences) {
+        schedulePreferences?.let { prefs ->
+            selectedBlocksWeekday = prefs.blocksPerWeekday
+            selectedBlocksWeekend = prefs.blocksPerWeekend
+            selectedHorizonWeeks = prefs.scheduleHorizonWeeks
+            selectedBlockDuration = prefs.defaultBlockDurationMinutes
+            selectedSubjectGrouping = prefs.subjectGrouping
+        }
+    }
     
     val scrollState = rememberScrollState()
     
@@ -87,7 +106,7 @@ fun ScheduleSettingsScreen(
                 IconButton(
                     onClick = { navController.popBackStack() }
                 ) {
-                    Icon(Icons.Default.ArrowBack, contentDescription = "Back")
+                    Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
                 }
             },
             colors = TopAppBarDefaults.topAppBarColors(
@@ -159,11 +178,72 @@ fun ScheduleSettingsScreen(
                     
                     Text(
                         text = when (selectedHorizonWeeks) {
-                            1 -> "One week - Quick sprint"
-                            2 -> "Two weeks - Balanced planning"
-                            3 -> "Three weeks - Comprehensive schedule"
-                            4 -> "Four weeks - Extended planning"
-                            else -> "$selectedHorizonWeeks weeks"
+                            1 -> "Short-term planning: Quick starts but requires frequent schedule regeneration"
+                            2 -> "Medium-term planning: Good balance between flexibility and convenience"
+                            3 -> "Optimal planning: Recommended for spaced repetition effectiveness"
+                            4 -> "Long-term planning: Maximum consistency but less adaptable to changes"
+                            else -> "Custom planning period"
+                        },
+                        fontSize = 12.sp,
+                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
+                    )
+                }
+            }
+            
+            Spacer(modifier = Modifier.height(16.dp))
+            
+            // Block Duration
+            SchedulePreferenceCard(
+                icon = Icons.Default.Timer,
+                title = "Block Duration",
+                description = "Length of each study session",
+                value = "${selectedBlockDuration} minutes"
+            ) {
+                Column {
+                    Text(
+                        text = "Duration: ${selectedBlockDuration} minutes",
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.Medium,
+                        modifier = Modifier.padding(bottom = 8.dp)
+                    )
+                    
+                    Slider(
+                        value = selectedBlockDuration.toFloat(),
+                        onValueChange = { 
+                            selectedBlockDuration = (it.toInt() / 15) * 15 // Round to 15-minute intervals
+                        },
+                        valueRange = 15f..180f,
+                        steps = 10,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    
+                    Spacer(modifier = Modifier.height(8.dp))
+                    
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Text(
+                            text = "15 min",
+                            fontSize = 12.sp,
+                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
+                        )
+                        Text(
+                            text = "3 hours",
+                            fontSize = 12.sp,
+                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
+                        )
+                    }
+                    
+                    Spacer(modifier = Modifier.height(8.dp))
+                    
+                    Text(
+                        text = when {
+                            selectedBlockDuration <= 30 -> "Quick sessions: Great for reviews and vocabulary"
+                            selectedBlockDuration <= 45 -> "Standard sessions: Good for most subjects"
+                            selectedBlockDuration <= 75 -> "Focused sessions: Ideal for deep learning"
+                            selectedBlockDuration <= 120 -> "Extended sessions: Perfect for complex topics"
+                            else -> "Marathon sessions: For intensive study periods"
                         },
                         fontSize = 12.sp,
                         color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
@@ -191,7 +271,7 @@ fun ScheduleSettingsScreen(
                     LazyRow(
                         horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
-                        items((1..6).toList()) { blocks ->
+                        items((1..8).toList()) { blocks ->
                             FilterChip(
                                 onClick = { selectedBlocksWeekday = blocks },
                                 label = { Text("$blocks") },
@@ -203,12 +283,15 @@ fun ScheduleSettingsScreen(
                     
                     Text(
                         text = when (selectedBlocksWeekday) {
-                            1 -> "Light weekday schedule - Minimal daily commitment"
-                            2 -> "Relaxed weekday schedule - Good for busy days"
-                            3 -> "Balanced weekday schedule - Steady progress"
-                            4 -> "Active weekday schedule - Focused learning"
-                            5 -> "Intensive weekday schedule - Exam preparation"
-                            else -> "Very intensive weekdays - Maximum learning"
+                            1 -> "Light schedule: Perfect for busy weekdays"
+                            2 -> "Moderate schedule: Good work-study balance"
+                            3 -> "Recommended: Optimal for consistent progress"
+                            4 -> "Intensive schedule: High commitment level"
+                            5 -> "Heavy schedule: Requires strong dedication"
+                            6 -> "Very intensive weekdays - High commitment"
+                            7 -> "Extreme weekday schedule - Maximum dedication"
+                            8 -> "Ultimate weekday schedule - Peak performance"
+                            else -> "Custom intensive weekdays"
                         },
                         fontSize = 12.sp,
                         color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
@@ -236,7 +319,7 @@ fun ScheduleSettingsScreen(
                     LazyRow(
                         horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
-                        items((0..4).toList()) { blocks ->
+                        items((0..6).toList()) { blocks ->
                             FilterChip(
                                 onClick = { selectedBlocksWeekend = blocks },
                                 label = { Text("$blocks") },
@@ -248,11 +331,14 @@ fun ScheduleSettingsScreen(
                     
                     Text(
                         text = when (selectedBlocksWeekend) {
-                            0 -> "Weekend breaks - No study blocks"
-                            1 -> "Light weekend schedule - Keep momentum"
-                            2 -> "Balanced weekend schedule - Steady progress"
-                            3 -> "Active weekend schedule - Intensive learning"
-                            else -> "Very intensive weekends - Maximum focus"
+                            0 -> "Complete rest: Weekends off for relaxation"
+                            1 -> "Light weekend study: Minimal commitment"
+                            2 -> "Balanced weekends: Recommended approach"
+                            3 -> "Active weekends: Accelerated learning"
+                            4 -> "Intensive weekends: Maximum progress"
+                            5 -> "Extreme weekend schedule: Maximum dedication"
+                            6 -> "Ultimate weekend schedule: Peak performance"
+                            else -> "Custom intensive weekends"
                         },
                         fontSize = 12.sp,
                         color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
@@ -262,16 +348,16 @@ fun ScheduleSettingsScreen(
             
             Spacer(modifier = Modifier.height(16.dp))
             
-            // Block Duration
+            // Subject Grouping
             SchedulePreferenceCard(
-                icon = Icons.Default.Timer,
-                title = "Block Duration",
-                description = "Length of each study session",
-                value = "${selectedBlockDuration} minutes"
+                icon = Icons.Default.ViewModule,
+                title = "Subject Grouping",
+                description = "How to organize subjects throughout your schedule",
+                value = selectedSubjectGrouping.displayName
             ) {
                 Column {
                     Text(
-                        text = "Duration: ${selectedBlockDuration} minutes",
+                        text = "Grouping: ${selectedSubjectGrouping.displayName}",
                         fontSize = 14.sp,
                         fontWeight = FontWeight.Medium,
                         modifier = Modifier.padding(bottom = 8.dp)
@@ -280,31 +366,44 @@ fun ScheduleSettingsScreen(
                     LazyRow(
                         horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
-                        items(listOf(30, 45, 60, 90, 120)) { duration ->
+                        items(SubjectGrouping.values()) { grouping ->
                             FilterChip(
-                                onClick = { selectedBlockDuration = duration },
+                                onClick = { selectedSubjectGrouping = grouping },
                                 label = { 
                                     Text(
-                                        text = when (duration) {
-                                            30 -> "30m"
-                                            45 -> "45m"
-                                            60 -> "1h"
-                                            90 -> "1.5h"
-                                            120 -> "2h"
-                                            else -> "${duration}m"
-                                        }
+                                        text = when (grouping) {
+                                            SubjectGrouping.MOST_GROUPED -> "Most"
+                                            SubjectGrouping.BALANCED -> "Balanced"
+                                            SubjectGrouping.LEAST_GROUPED -> "Least"
+                                            else -> "Unknown"
+                                        },
+                                        fontSize = 12.sp
                                     )
                                 },
-                                selected = duration == selectedBlockDuration,
-                                modifier = Modifier.widthIn(min = 56.dp)
+                                selected = grouping == selectedSubjectGrouping,
+                                modifier = Modifier.widthIn(min = 70.dp)
                             )
                         }
                     }
                     
                     Text(
-                        text = "Recommended: 45-60 minutes for focused learning",
+                        text = selectedSubjectGrouping.description,
                         fontSize = 12.sp,
                         color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
+                    )
+                    
+                    Spacer(modifier = Modifier.height(8.dp))
+                    
+                    // Visual examples
+                    Text(
+                        text = when (selectedSubjectGrouping) {
+                            SubjectGrouping.MOST_GROUPED -> "Example: 📚📚📚 🧮🧮🧮 🧪🧪🧪"
+                            SubjectGrouping.BALANCED -> "Example: 📚🧮🧪 📚🧮🧪 📚🧮🧪"
+                            SubjectGrouping.LEAST_GROUPED -> "Example: 📚🧮🧪 🧪📚🧮 🧮🧪📚"
+                        },
+                        fontSize = 11.sp,
+                        color = MaterialTheme.colorScheme.primary,
+                        fontWeight = FontWeight.Medium
                     )
                 }
             }
@@ -351,6 +450,11 @@ fun ScheduleSettingsScreen(
                         fontSize = 14.sp,
                         color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f)
                     )
+                    Text(
+                        text = "• Subject grouping: ${selectedSubjectGrouping.displayName}",
+                        fontSize = 14.sp,
+                        color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f)
+                    )
                     
                     Spacer(modifier = Modifier.height(8.dp))
                     
@@ -367,7 +471,7 @@ fun ScheduleSettingsScreen(
             // Generate Button
             Button(
                 onClick = {
-                    onGenerate(selectedBlocksWeekday, selectedBlocksWeekend, selectedHorizonWeeks * 7, selectedBlockDuration)
+                    onGenerate(selectedBlocksWeekday, selectedBlocksWeekend, selectedHorizonWeeks * 7, selectedBlockDuration, selectedSubjectGrouping)
                 },
                 modifier = Modifier
                     .fillMaxWidth()

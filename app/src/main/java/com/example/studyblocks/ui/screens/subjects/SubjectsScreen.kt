@@ -3,6 +3,7 @@ package com.example.studyblocks.ui.screens.subjects
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.*
 import androidx.compose.foundation.layout.*
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.grid.GridCells
@@ -33,6 +34,15 @@ import com.example.studyblocks.navigation.Screen
 import com.example.studyblocks.data.model.SubjectIcon
 import com.example.studyblocks.data.model.SubjectIconMatcher
 import com.example.studyblocks.repository.SchedulingResult
+import com.example.studyblocks.ui.components.SubjectCard
+import com.example.studyblocks.ui.components.AnimatedFloatingActionButton
+import com.example.studyblocks.ui.components.ModernCard
+import com.example.studyblocks.ui.components.GradientButton
+import com.example.studyblocks.ui.components.ConfidenceRatingIndicator
+import com.example.studyblocks.ui.components.XPProgressBar
+import com.example.studyblocks.ui.theme.StudyBlocksTypography
+import com.example.studyblocks.ui.theme.StudyGradients
+import com.example.studyblocks.ui.theme.ConfidenceColors
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 import java.time.temporal.ChronoUnit
@@ -69,89 +79,166 @@ fun SubjectsScreen(
         Column(
             modifier = Modifier.fillMaxSize()
         ) {
-            // Top App Bar
-            TopAppBar(
-                title = {
-                    Text(
-                        text = "My Subjects (${subjects.size})",
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 18.sp
+            // Modern Gradient Top App Bar
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(
+                        brush = StudyGradients.primaryGradient
                     )
-                },
-                actions = {
-                    // Sort Menu
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 20.dp, vertical = 20.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column {
+                        Text(
+                            text = "My Subjects",
+                            style = StudyBlocksTypography.screenTitle,
+                            color = Color.White
+                        )
+                        Text(
+                            text = "${subjects.size} subjects · Build your expertise",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = Color.White.copy(alpha = 0.8f)
+                        )
+                    }
+                    
+                    // Sort Menu with glass effect
                     Box {
-                        IconButton(onClick = { showSortMenu = true }) {
-                            Icon(Icons.AutoMirrored.Filled.Sort, contentDescription = "Sort")
+                        Box(
+                            modifier = Modifier
+                                .size(48.dp)
+                                .background(
+                                    Color.White.copy(alpha = 0.2f),
+                                    CircleShape
+                                )
+                                .clickable { showSortMenu = true },
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                Icons.AutoMirrored.Filled.Sort,
+                                contentDescription = "Sort",
+                                modifier = Modifier.size(24.dp),
+                                tint = Color.White
+                            )
                         }
                         
                         DropdownMenu(
                             expanded = showSortMenu,
-                            onDismissRequest = { showSortMenu = false }
+                            onDismissRequest = { showSortMenu = false },
+                            modifier = Modifier.background(
+                                MaterialTheme.colorScheme.surface,
+                                RoundedCornerShape(12.dp)
+                            )
                         ) {
                             SortBy.values().forEach { sortOption ->
                                 DropdownMenuItem(
-                                    text = { Text(sortOption.displayName) },
+                                    text = { 
+                                        Text(
+                                            sortOption.displayName,
+                                            style = MaterialTheme.typography.bodyMedium,
+                                            fontWeight = if (sortBy == sortOption) FontWeight.SemiBold else FontWeight.Normal
+                                        ) 
+                                    },
                                     onClick = {
                                         viewModel.setSortBy(sortOption)
                                         showSortMenu = false
                                     },
                                     leadingIcon = {
                                         if (sortBy == sortOption) {
-                                            Icon(Icons.Default.Check, contentDescription = null)
+                                            Icon(
+                                                Icons.Default.Check,
+                                                contentDescription = null,
+                                                tint = MaterialTheme.colorScheme.primary,
+                                                modifier = Modifier.size(20.dp)
+                                            )
                                         }
                                     }
                                 )
                             }
                         }
                     }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.surface
-                ),
-                modifier = Modifier.height(64.dp)
-            )
+                }
+            }
             
             Column(
                 modifier = Modifier
                     .fillMaxSize()
                     .padding(horizontal = 16.dp)
             ) {
-                // Schedule Generation Section
+                Spacer(modifier = Modifier.height(16.dp))
+                
+                // Compact Schedule Generation Section
                 if (subjects.isNotEmpty()) {
-                    Card(
-                        modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(12.dp)
-                    ) {
-                        Column(
-                            modifier = Modifier.padding(16.dp)
-                        ) {
-                            Text(
-                                text = "📅 Schedule Generation",
-                                fontSize = 16.sp,
-                                fontWeight = FontWeight.Medium
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .background(
+                                brush = StudyGradients.successGradient,
+                                shape = RoundedCornerShape(16.dp)
                             )
+                            .padding(16.dp)
+                            .clickable(enabled = !isGeneratingSchedule) { 
+                                navController.navigate(Screen.ScheduleSettings.route) 
+                            }
+                    ) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Row(
+                                modifier = Modifier.weight(1f),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(12.dp)
+                            ) {
+                                Text(
+                                    text = "📅",
+                                    style = MaterialTheme.typography.headlineSmall
+                                )
+                                Column {
+                                    Text(
+                                        text = "Generate Schedule",
+                                        style = StudyBlocksTypography.subjectTitle,
+                                        color = Color.White
+                                    )
+                                    Text(
+                                        text = "AI-powered study plan",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = Color.White.copy(alpha = 0.8f)
+                                    )
+                                }
+                            }
                             
-                            Spacer(modifier = Modifier.height(16.dp))
-                            
-                            // Generate button
-                            Button(
-                                onClick = { navController.navigate(Screen.ScheduleSettings.route) },
-                                modifier = Modifier.fillMaxWidth(),
-                                enabled = !isGeneratingSchedule
+                            // Compact Generate button
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(6.dp)
                             ) {
                                 if (isGeneratingSchedule) {
                                     CircularProgressIndicator(
                                         modifier = Modifier.size(16.dp),
-                                        strokeWidth = 2.dp
+                                        strokeWidth = 2.dp,
+                                        color = Color.White
                                     )
-                                    Spacer(modifier = Modifier.width(8.dp))
-                                    Text("Generating...")
                                 } else {
-                                    Icon(Icons.Default.Refresh, contentDescription = null)
-                                    Spacer(modifier = Modifier.width(8.dp))
-                                    Text("Generate New Schedule")
+                                    Icon(
+                                        Icons.Default.Refresh,
+                                        contentDescription = null,
+                                        modifier = Modifier.size(18.dp),
+                                        tint = Color.White
+                                    )
                                 }
+                                Text(
+                                    if (isGeneratingSchedule) "Generating..." else "Generate",
+                                    style = MaterialTheme.typography.labelMedium,
+                                    color = Color.White,
+                                    fontWeight = FontWeight.SemiBold
+                                )
                             }
                         }
                     }
@@ -159,17 +246,18 @@ fun SubjectsScreen(
                     Spacer(modifier = Modifier.height(16.dp))
                 }
                 
-                // Subjects List
+                // Subjects List with enhanced spacing
                 if (subjects.isEmpty()) {
                     EmptySubjectsState(
                         onAddSubject = { viewModel.showAddSubjectDialog() }
                     )
                 } else {
                     LazyColumn(
-                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                        verticalArrangement = Arrangement.spacedBy(16.dp),
+                        contentPadding = PaddingValues(bottom = 100.dp)
                     ) {
                         items(subjects) { subject ->
-                            SubjectCard(
+                            EnhancedSubjectCard(
                                 subject = subject,
                                 onClick = { navController.navigate("subject_detail/${subject.id}") }
                             )
@@ -179,14 +267,25 @@ fun SubjectsScreen(
             }
         }
         
-        // Floating Action Button
-        FloatingActionButton(
-            onClick = { viewModel.showAddSubjectDialog() },
+        // Enhanced Floating Action Button
+        Box(
             modifier = Modifier
                 .align(Alignment.BottomEnd)
                 .padding(16.dp)
+                .size(56.dp)
+                .background(
+                    brush = StudyGradients.primaryGradient,
+                    shape = CircleShape
+                )
+                .clickable { viewModel.showAddSubjectDialog() },
+            contentAlignment = Alignment.Center
         ) {
-            Icon(Icons.Default.Add, contentDescription = "Add Subject")
+            Icon(
+                Icons.Default.Add,
+                contentDescription = "Add Subject",
+                tint = Color.White,
+                modifier = Modifier.size(24.dp)
+            )
         }
     }
     
@@ -665,4 +764,301 @@ fun ScheduleResultDialog(
             }
         }
     )
+}
+
+@Composable
+fun ModernSubjectCard(
+    subject: Subject,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    SubjectCard(
+        onClick = onClick,
+        modifier = modifier,
+        confidenceLevel = subject.confidence,
+        xp = subject.xp.toLong(),
+        level = subject.level
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            // Subject Icon with gradient background
+            Box(
+                modifier = Modifier
+                    .size(56.dp)
+                    .background(
+                        StudyGradients.primaryGradient,
+                        CircleShape
+                    ),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    text = subject.icon,
+                    style = MaterialTheme.typography.headlineMedium,
+                    color = MaterialTheme.colorScheme.onPrimary
+                )
+            }
+            
+            Spacer(modifier = Modifier.width(16.dp))
+            
+            // Subject Info
+            Column(
+                modifier = Modifier.weight(1f)
+            ) {
+                Text(
+                    text = subject.name,
+                    style = StudyBlocksTypography.subjectTitle,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+                
+                Spacer(modifier = Modifier.height(4.dp))
+                
+                // XP Progress Bar
+                XPProgressBar(
+                    currentXP = subject.xp.toLong(),
+                    targetXP = subject.xpForNextLevel.toLong(),
+                    level = subject.level,
+                    showXPNumbers = false,
+                    animationDuration = 1000
+                )
+                
+                Spacer(modifier = Modifier.height(8.dp))
+                
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(16.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    // Block Duration
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(4.dp)
+                    ) {
+                        Icon(
+                            Icons.Default.Timer,
+                            contentDescription = null,
+                            modifier = Modifier.size(16.dp),
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        Text(
+                            text = "${subject.blockDurationMinutes}min blocks",
+                            style = StudyBlocksTypography.blockDuration,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                    
+                    // Level Display
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(4.dp)
+                    ) {
+                        Icon(
+                            Icons.Default.Star,
+                            contentDescription = null,
+                            modifier = Modifier.size(16.dp),
+                            tint = MaterialTheme.colorScheme.secondary
+                        )
+                        Text(
+                            text = "Level ${subject.level}",
+                            style = StudyBlocksTypography.levelDisplay,
+                            color = MaterialTheme.colorScheme.secondary
+                        )
+                    }
+                }
+            }
+            
+            Spacer(modifier = Modifier.width(12.dp))
+            
+            // Confidence Rating Indicator
+            ConfidenceRatingIndicator(
+                confidence = subject.confidence,
+                size = 60.dp,
+                interactive = false
+            )
+        }
+    }
+}
+
+@Composable
+fun EnhancedSubjectCard(
+    subject: Subject,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val confidenceColor = when (subject.confidence) {
+        in 1..3 -> Color(0xFFEF5350) // Red for low confidence
+        in 4..6 -> Color(0xFFFF9800) // Orange for medium confidence  
+        in 7..8 -> Color(0xFF66BB6A) // Green for good confidence
+        else -> Color(0xFF42A5F5) // Blue for excellent confidence
+    }
+    
+    Box(
+        modifier = modifier
+            .fillMaxWidth()
+            .background(
+                Color.White,
+                RoundedCornerShape(20.dp)
+            )
+            .clickable { onClick() }
+            .padding(20.dp)
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            // Subject Icon with colored background
+            Box(
+                modifier = Modifier
+                    .size(64.dp)
+                    .background(
+                        confidenceColor.copy(alpha = 0.15f),
+                        CircleShape
+                    ),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    text = subject.icon,
+                    style = MaterialTheme.typography.headlineLarge,
+                    fontSize = 28.sp
+                )
+            }
+            
+            Spacer(modifier = Modifier.width(20.dp))
+            
+            // Subject Info
+            Column(
+                modifier = Modifier.weight(1f)
+            ) {
+                Row(
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text(
+                        text = subject.name,
+                        style = StudyBlocksTypography.subjectTitle,
+                        color = MaterialTheme.colorScheme.onSurface,
+                        fontSize = 20.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                    
+                    // Level badge
+                    Box(
+                        modifier = Modifier
+                            .background(
+                                confidenceColor.copy(alpha = 0.15f),
+                                RoundedCornerShape(12.dp)
+                            )
+                            .padding(horizontal = 12.dp, vertical = 4.dp)
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(4.dp)
+                        ) {
+                            Text(
+                                text = "⭐",
+                                fontSize = 12.sp
+                            )
+                            Text(
+                                text = "Level ${subject.level}",
+                                style = MaterialTheme.typography.labelMedium,
+                                color = confidenceColor,
+                                fontWeight = FontWeight.SemiBold
+                            )
+                        }
+                    }
+                }
+                
+                Spacer(modifier = Modifier.height(8.dp))
+                
+                // XP Progress with better styling
+                Column {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Text(
+                            text = "${subject.xp} XP",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            fontWeight = FontWeight.Medium
+                        )
+                        Text(
+                            text = "${subject.xpForNextLevel} XP",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            fontWeight = FontWeight.Medium
+                        )
+                    }
+                    
+                    Spacer(modifier = Modifier.height(4.dp))
+                    
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(6.dp)
+                            .background(
+                                confidenceColor.copy(alpha = 0.1f),
+                                RoundedCornerShape(3.dp)
+                            )
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth(subject.levelProgress)
+                                .fillMaxHeight()
+                                .background(
+                                    confidenceColor,
+                                    RoundedCornerShape(3.dp)
+                                )
+                        )
+                    }
+                }
+                
+                Spacer(modifier = Modifier.height(12.dp))
+                
+                // Enhanced stats row
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(20.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    // Block Duration
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        Icon(
+                            Icons.Default.Timer,
+                            contentDescription = null,
+                            modifier = Modifier.size(16.dp),
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        Text(
+                            text = "${subject.blockDurationMinutes}min",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            fontWeight = FontWeight.Medium
+                        )
+                    }
+                    
+                    // Confidence indicator
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(8.dp)
+                                .background(confidenceColor, CircleShape)
+                        )
+                        Text(
+                            text = "${subject.confidence}/10 confidence",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            fontWeight = FontWeight.Medium
+                        )
+                    }
+                }
+            }
+        }
+    }
 }

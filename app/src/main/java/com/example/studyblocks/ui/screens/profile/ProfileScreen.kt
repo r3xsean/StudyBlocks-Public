@@ -45,6 +45,7 @@ fun ProfileScreen(
     var showNotificationSettings by remember { mutableStateOf(false) }
     var showStudySettings by remember { mutableStateOf(false) }
     var showAboutDialog by remember { mutableStateOf(false) }
+    var showRedoOnboardingDialog by remember { mutableStateOf(false) }
     
     val context = LocalContext.current
     
@@ -115,6 +116,12 @@ fun ProfileScreen(
                             title = "Sync Data",
                             subtitle = "Last sync: ${profileStats.lastSync}",
                             onClick = { viewModel.syncData() }
+                        ),
+                        ProfileItem(
+                            icon = Icons.Default.RestartAlt,
+                            title = "Redo Onboarding",
+                            subtitle = "Go through the setup process again",
+                            onClick = { showRedoOnboardingDialog = true }
                         )
                     )
                 )
@@ -311,6 +318,37 @@ fun ProfileScreen(
             },
             dismissButton = {
                 TextButton(onClick = { viewModel.hideDeleteAccountDialog() }) {
+                    Text("Cancel")
+                }
+            }
+        )
+    }
+    
+    if (showRedoOnboardingDialog) {
+        AlertDialog(
+            onDismissRequest = { showRedoOnboardingDialog = false },
+            title = { Text("Redo Onboarding") },
+            text = { 
+                Text("This will delete all your current subjects and their associated study blocks. You'll need to set up your subjects again during the onboarding process. Are you sure you want to continue?")
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = { 
+                        showRedoOnboardingDialog = false
+                        viewModel.resetOnboardingAndDeleteSubjects()
+                        navController.navigate("onboarding_welcome") {
+                            popUpTo(0) { inclusive = true }
+                        }
+                    },
+                    colors = ButtonDefaults.textButtonColors(
+                        contentColor = MaterialTheme.colorScheme.error
+                    )
+                ) {
+                    Text("Continue")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showRedoOnboardingDialog = false }) {
                     Text("Cancel")
                 }
             }

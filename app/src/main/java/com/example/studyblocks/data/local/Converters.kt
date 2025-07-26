@@ -1,6 +1,7 @@
 package com.example.studyblocks.data.local
 
 import androidx.room.TypeConverter
+import com.example.studyblocks.data.model.SubjectGrouping
 import java.time.LocalDate
 import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
@@ -28,5 +29,15 @@ class Converters {
     @TypeConverter
     fun toLocalDateTime(dateTimeString: String?): LocalDateTime? {
         return dateTimeString?.let { LocalDateTime.parse(it, dateTimeFormatter) }
+    }
+    
+    @TypeConverter
+    fun fromSubjectGrouping(grouping: SubjectGrouping): String {
+        return grouping.name
+    }
+    
+    @TypeConverter
+    fun toSubjectGrouping(name: String): SubjectGrouping {
+        return SubjectGrouping.valueOf(name)
     }
 }

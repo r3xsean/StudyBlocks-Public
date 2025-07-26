@@ -166,7 +166,6 @@ fun OnboardingSubjectsScreen(
             Button(
                 onClick = {
                     onSubjectsCreated(subjects)
-                    navController.navigate(com.example.studyblocks.navigation.Screen.OnboardingPreferences.route)
                 },
                 modifier = Modifier
                     .weight(1f)

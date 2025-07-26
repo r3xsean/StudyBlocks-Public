@@ -225,6 +225,42 @@ class ProfileViewModel @Inject constructor(
             }
         }
     }
+    
+    fun resetOnboarding() {
+        viewModelScope.launch {
+            _isLoading.value = true
+            try {
+                _currentUser.value?.let { user ->
+                    val updatedUser = user.copy(hasCompletedOnboarding = false)
+                    studyRepository.updateUser(updatedUser)
+                }
+            } catch (e: Exception) {
+                // Handle error
+            } finally {
+                _isLoading.value = false
+            }
+        }
+    }
+    
+    fun resetOnboardingAndDeleteSubjects() {
+        viewModelScope.launch {
+            _isLoading.value = true
+            try {
+                _currentUser.value?.let { user ->
+                    // Delete all subjects and their associated blocks
+                    studyRepository.deleteAllSubjectsForUser(user.id)
+                    
+                    // Reset onboarding completion status
+                    val updatedUser = user.copy(hasCompletedOnboarding = false)
+                    studyRepository.updateUser(updatedUser)
+                }
+            } catch (e: Exception) {
+                // Handle error
+            } finally {
+                _isLoading.value = false
+            }
+        }
+    }
 }
 
 data class ProfileStats(

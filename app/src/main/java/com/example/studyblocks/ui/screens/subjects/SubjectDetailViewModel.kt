@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.studyblocks.data.model.Subject
 import com.example.studyblocks.data.model.SubjectIcon
+import com.example.studyblocks.data.model.XPDataPoint
 import com.example.studyblocks.repository.StudyRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.*
@@ -31,11 +32,15 @@ class SubjectDetailViewModel @Inject constructor(
     val studyStats: StateFlow<StudyStats> = _subject.flatMapLatest { subject ->
         if (subject != null) {
             studyRepository.getBlocksForSubject(subject.id).map { blocks ->
+                val completedBlocks = blocks.filter { it.isCompleted }
+                val totalMinutes = completedBlocks.sumOf { it.durationMinutes }
+                val totalXP = completedBlocks.sumOf { it.durationMinutes * 100 / 60 }
+                
                 StudyStats(
                     totalBlocks = blocks.size,
-                    completedBlocks = blocks.count { it.isCompleted },
-                    totalMinutes = blocks.filter { it.isCompleted }
-                        .sumOf { it.durationMinutes }
+                    completedBlocks = completedBlocks.size,
+                    totalMinutes = totalMinutes,
+                    totalXP = totalXP
                 )
             }
         } else {
@@ -45,6 +50,37 @@ class SubjectDetailViewModel @Inject constructor(
         scope = viewModelScope,
         started = SharingStarted.WhileSubscribed(5000),
         initialValue = StudyStats()
+    )
+    
+    // Subject-specific XP progression data
+    val subjectXPProgression: StateFlow<List<XPDataPoint>> = _subject.flatMapLatest { subject ->
+        if (subject != null) {
+            studyRepository.getCurrentUserFlow().flatMapLatest { user ->
+                if (user != null) {
+                    studyRepository.getXPProgressionFlow(user.id).map { allXPData ->
+                        // Filter XP data for this specific subject and create progression based on subject XP
+                        allXPData.filter { xpPoint ->
+                            // Only include points that have XP data for this subject
+                            xpPoint.subjectXP.containsKey(subject.id)
+                        }.map { xpPoint ->
+                            // Create a modified XP point with just this subject's XP
+                            xpPoint.copy(
+                                sessionXP = xpPoint.subjectXP[subject.id] ?: 0,
+                                subjectXP = mapOf(subject.id to (xpPoint.subjectXP[subject.id] ?: 0))
+                            )
+                        }
+                    }
+                } else {
+                    flowOf(emptyList())
+                }
+            }
+        } else {
+            flowOf(emptyList())
+        }
+    }.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5000),
+        initialValue = emptyList()
     )
     
     fun loadSubject(subjectId: String) {

@@ -23,6 +23,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
@@ -31,7 +32,11 @@ import androidx.navigation.NavController
 import com.example.studyblocks.data.model.Subject
 import com.example.studyblocks.data.model.SubjectIcon
 import com.example.studyblocks.data.model.SubjectIconMatcher
-import java.time.format.DateTimeFormatter
+import com.example.studyblocks.data.model.XPDataPoint
+import com.example.studyblocks.ui.theme.StudyBlocksTypography
+import com.example.studyblocks.ui.theme.StudyGradients
+import com.example.studyblocks.ui.components.XPProgressBar
+import kotlin.math.pow
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -42,6 +47,7 @@ fun SubjectDetailScreen(
 ) {
     val subject by viewModel.subject.collectAsState()
     val studyStats by viewModel.studyStats.collectAsState()
+    val subjectXPProgression by viewModel.subjectXPProgression.collectAsState()
     val isLoading by viewModel.isLoading.collectAsState()
     val showEditDialog by viewModel.showEditDialog.collectAsState()
     val showDeleteDialog by viewModel.showDeleteDialog.collectAsState()
@@ -75,77 +81,157 @@ fun SubjectDetailScreen(
     
     val currentSubject = subject!!
     
-    Column(
+    Box(
         modifier = Modifier
             .fillMaxSize()
             .background(MaterialTheme.colorScheme.background)
     ) {
-        // Top App Bar
-        TopAppBar(
-            title = {
+        Column(
+            modifier = Modifier.fillMaxSize()
+        ) {
+            // Gradient Header
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(120.dp)
+                    .background(
+                        brush = StudyGradients.primaryGradient
+                    )
+            ) {
                 Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 16.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Text(
-                        text = currentSubject.icon,
-                        fontSize = 24.sp,
-                        modifier = Modifier.padding(end = 8.dp)
-                    )
-                    Text(
-                        text = currentSubject.name,
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 18.sp
-                    )
-                }
-            },
-            navigationIcon = {
-                IconButton(onClick = { navController.navigateUp() }) {
-                    Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
-                }
-            },
-            actions = {
-                IconButton(onClick = { viewModel.showEditDialog() }) {
-                    Icon(Icons.Default.Edit, contentDescription = "Edit")
-                }
-                IconButton(onClick = { viewModel.showDeleteDialog() }) {
-                    Icon(Icons.Default.Delete, contentDescription = "Delete")
-                }
-            }
-        )
-        
-        LazyColumn(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(horizontal = 16.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp)
-        ) {
-            item {
-                Spacer(modifier = Modifier.height(16.dp))
-            }
-            
-            // Level & XP Section
-            item {
-                LevelXPCard(subject = currentSubject)
-            }
-            
-            // Confidence Section
-            item {
-                ConfidenceCard(
-                    subject = currentSubject,
-                    onConfidenceChange = { confidence ->
-                        viewModel.updateConfidence(confidence)
+                    Row(
+                        modifier = Modifier.weight(1f),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        // Back Button
+                        Box(
+                            modifier = Modifier
+                                .size(44.dp)
+                                .background(
+                                    Color.White.copy(alpha = 0.2f),
+                                    CircleShape
+                                )
+                                .clickable { navController.navigateUp() },
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                Icons.AutoMirrored.Filled.ArrowBack,
+                                contentDescription = "Back",
+                                modifier = Modifier.size(20.dp),
+                                tint = Color.White
+                            )
+                        }
+                        
+                        Spacer(modifier = Modifier.width(16.dp))
+                        
+                        // Subject Info
+                        Column {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(
+                                    text = currentSubject.icon,
+                                    fontSize = 24.sp,
+                                    modifier = Modifier.padding(end = 8.dp)
+                                )
+                                Text(
+                                    text = currentSubject.name,
+                                    style = StudyBlocksTypography.screenTitle.copy(fontSize = 24.sp),
+                                    color = Color.White,
+                                    maxLines = 1
+                                )
+                            }
+                            Text(
+                                text = "Level ${currentSubject.level} • ${currentSubject.xp} XP",
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = Color.White.copy(alpha = 0.8f)
+                            )
+                        }
                     }
-                )
+                    
+                    // Action Buttons
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(44.dp)
+                                .background(
+                                    Color.White.copy(alpha = 0.2f),
+                                    CircleShape
+                                )
+                                .clickable { viewModel.showEditDialog() },
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                Icons.Default.Edit,
+                                contentDescription = "Edit",
+                                modifier = Modifier.size(20.dp),
+                                tint = Color.White
+                            )
+                        }
+                        
+                        Box(
+                            modifier = Modifier
+                                .size(44.dp)
+                                .background(
+                                    Color.White.copy(alpha = 0.2f),
+                                    CircleShape
+                                )
+                                .clickable { viewModel.showDeleteDialog() },
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                Icons.Default.Delete,
+                                contentDescription = "Delete",
+                                modifier = Modifier.size(20.dp),
+                                tint = Color.White
+                            )
+                        }
+                    }
+                }
             }
-            
-            // Study Statistics
-            item {
-                StudyStatsCard(stats = studyStats)
-            }
-            
-            
-            item {
-                Spacer(modifier = Modifier.height(32.dp))
+        
+            // Body Content
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(horizontal = 16.dp)
+            ) {
+                Spacer(modifier = Modifier.height(16.dp))
+                
+                LazyColumn(
+                    modifier = Modifier.fillMaxSize(),
+                    verticalArrangement = Arrangement.spacedBy(16.dp),
+                    contentPadding = PaddingValues(bottom = 100.dp)
+                ) {
+                    // Level & XP Section
+                    item {
+                        ModernLevelXPCard(subject = currentSubject)
+                    }
+                    
+                    
+                    // Confidence Section
+                    item {
+                        ModernConfidenceCard(
+                            subject = currentSubject,
+                            onConfidenceChange = { confidence ->
+                                viewModel.updateConfidence(confidence)
+                            }
+                        )
+                    }
+                    
+                    // Study Statistics
+                    item {
+                        ModernStudyStatsCard(stats = studyStats, subject = currentSubject)
+                    }
+                }
             }
         }
     }
@@ -174,243 +260,13 @@ fun SubjectDetailScreen(
     }
 }
 
-@Composable
-fun LevelXPCard(subject: Subject) {
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp),
-        shape = RoundedCornerShape(16.dp)
-    ) {
-        Column(
-            modifier = Modifier.padding(20.dp),
-            horizontalAlignment = Alignment.CenterHorizontally
-        ) {
-            Text(
-                text = "Level ${subject.level}",
-                fontSize = 32.sp,
-                fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.primary
-            )
-            
-            Spacer(modifier = Modifier.height(8.dp))
-            
-            Text(
-                text = "${subject.xp} XP",
-                fontSize = 18.sp,
-                color = MaterialTheme.colorScheme.onSurface
-            )
-            
-            Spacer(modifier = Modifier.height(16.dp))
-            
-            // Progress bar to next level
-            Column(
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween
-                ) {
-                    Text(
-                        text = "Progress to Level ${subject.level + 1}",
-                        fontSize = 14.sp,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                    Text(
-                        text = "${(subject.levelProgress * 100).toInt()}%",
-                        fontSize = 14.sp,
-                        fontWeight = FontWeight.Medium,
-                        color = MaterialTheme.colorScheme.primary
-                    )
-                }
-                
-                Spacer(modifier = Modifier.height(8.dp))
-                
-                LinearProgressIndicator(
-                    progress = { subject.levelProgress },
-                    modifier = Modifier.fillMaxWidth(),
-                    color = MaterialTheme.colorScheme.primary,
-                    trackColor = MaterialTheme.colorScheme.primaryContainer
-                )
-                
-                Spacer(modifier = Modifier.height(8.dp))
-                
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween
-                ) {
-                    Text(
-                        text = "${subject.xpForCurrentLevel} XP",
-                        fontSize = 12.sp,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                    Text(
-                        text = "${subject.xpForNextLevel} XP",
-                        fontSize = 12.sp,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-            }
-        }
-    }
-}
+// Removed old LevelXPCard - using ModernLevelXPCard instead
 
-@Composable
-fun ConfidenceCard(
-    subject: Subject,
-    onConfidenceChange: (Int) -> Unit
-) {
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
-        shape = RoundedCornerShape(12.dp)
-    ) {
-        Column(
-            modifier = Modifier.padding(16.dp)
-        ) {
-            Text(
-                text = "Confidence Level",
-                fontSize = 18.sp,
-                fontWeight = FontWeight.Bold
-            )
-            
-            Spacer(modifier = Modifier.height(16.dp))
-            
-            Text(
-                text = "How confident do you feel with this subject?",
-                fontSize = 14.sp,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-            
-            Spacer(modifier = Modifier.height(16.dp))
-            
-            // Confidence slider
-            Text(
-                text = "Confidence: ${subject.confidence}/10",
-                fontSize = 16.sp,
-                fontWeight = FontWeight.Medium
-            )
-            
-            Spacer(modifier = Modifier.height(8.dp))
-            
-            Slider(
-                value = subject.confidence.toFloat(),
-                onValueChange = { onConfidenceChange(it.toInt()) },
-                valueRange = 1f..10f,
-                steps = 8,
-                modifier = Modifier.fillMaxWidth()
-            )
-            
-            Text(
-                text = when (subject.confidence) {
-                    in 1..3 -> "Struggling - Need lots of practice"
-                    in 4..6 -> "Learning - Making progress"
-                    in 7..8 -> "Good - Pretty confident"
-                    else -> "Excellent - Very confident"
-                },
-                fontSize = 12.sp,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-        }
-    }
-}
+// Removed old ConfidenceCard - using ModernConfidenceCard instead
 
-@Composable
-fun StudyStatsCard(stats: StudyStats) {
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
-        shape = RoundedCornerShape(12.dp)
-    ) {
-        Column(
-            modifier = Modifier.padding(16.dp)
-        ) {
-            Text(
-                text = "Study Statistics",
-                fontSize = 18.sp,
-                fontWeight = FontWeight.Bold
-            )
-            
-            Spacer(modifier = Modifier.height(16.dp))
-            
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceEvenly
-            ) {
-                StatItem(
-                    label = "Total Blocks",
-                    value = "${stats.totalBlocks}",
-                    color = MaterialTheme.colorScheme.primary
-                )
-                StatItem(
-                    label = "Completed",
-                    value = "${stats.completedBlocks}",
-                    color = MaterialTheme.colorScheme.tertiary
-                )
-                StatItem(
-                    label = "Study Time",
-                    value = "${stats.totalMinutes}m",
-                    color = MaterialTheme.colorScheme.secondary
-                )
-            }
-            
-            Spacer(modifier = Modifier.height(16.dp))
-            
-            if (stats.totalBlocks > 0) {
-                val completionRate = (stats.completedBlocks.toFloat() / stats.totalBlocks * 100).toInt()
-                
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text(
-                        text = "Completion Rate",
-                        fontSize = 14.sp,
-                        fontWeight = FontWeight.Medium
-                    )
-                    Text(
-                        text = "$completionRate%",
-                        fontSize = 14.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.primary
-                    )
-                }
-                
-                Spacer(modifier = Modifier.height(8.dp))
-                
-                LinearProgressIndicator(
-                    progress = { completionRate / 100f },
-                    modifier = Modifier.fillMaxWidth(),
-                    color = MaterialTheme.colorScheme.primary,
-                    trackColor = MaterialTheme.colorScheme.primaryContainer
-                )
-            }
-        }
-    }
-}
+// Removed old StudyStatsCard - using ModernStudyStatsCard instead
 
-@Composable
-fun StatItem(
-    label: String,
-    value: String,
-    color: Color
-) {
-    Column(
-        horizontalAlignment = Alignment.CenterHorizontally
-    ) {
-        Text(
-            text = value,
-            fontSize = 24.sp,
-            fontWeight = FontWeight.Bold,
-            color = color
-        )
-        Text(
-            text = label,
-            fontSize = 12.sp,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
-    }
-}
+// Removed old StatItem - using ModernStatItem instead
 
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -589,8 +445,334 @@ fun DeleteSubjectDialog(
     )
 }
 
+
+@Composable
+fun ModernLevelXPCard(subject: Subject) {
+    val confidenceColor = when (subject.confidence) {
+        in 1..3 -> Color(0xFFEF5350)
+        in 4..6 -> Color(0xFFFF9800)
+        in 7..8 -> Color(0xFF66BB6A)
+        else -> Color(0xFF42A5F5)
+    }
+    
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(
+                confidenceColor.copy(alpha = 0.1f),
+                RoundedCornerShape(24.dp)
+            )
+            .padding(20.dp)
+    ) {
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            // Level Display
+            Box(
+                modifier = Modifier
+                    .size(80.dp)
+                    .background(
+                        confidenceColor.copy(alpha = 0.2f),
+                        CircleShape
+                    ),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    text = "${subject.level}",
+                    style = StudyBlocksTypography.levelDisplay,
+                    fontSize = 32.sp,
+                    color = confidenceColor,
+                    fontWeight = FontWeight.Bold
+                )
+            }
+            
+            Spacer(modifier = Modifier.height(12.dp))
+            
+            Text(
+                text = "Level ${subject.level}",
+                style = StudyBlocksTypography.subjectTitle,
+                fontSize = 24.sp,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.onSurface
+            )
+            
+            Text(
+                text = "${subject.xp} XP earned",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            
+            Spacer(modifier = Modifier.height(20.dp))
+            
+            // XP Progress Bar
+            XPProgressBar(
+                currentXP = subject.xp.toLong(),
+                targetXP = subject.xpForNextLevel.toLong(),
+                level = subject.level,
+                showXPNumbers = true,
+                animationDuration = 1500
+            )
+        }
+    }
+}
+
+@Composable
+fun ModernConfidenceCard(
+    subject: Subject,
+    onConfidenceChange: (Int) -> Unit
+) {
+    val confidenceColor = when (subject.confidence) {
+        in 1..3 -> Color(0xFFEF5350)
+        in 4..6 -> Color(0xFFFF9800)
+        in 7..8 -> Color(0xFF66BB6A)
+        else -> Color(0xFF42A5F5)
+    }
+    
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(
+                Color.White,
+                RoundedCornerShape(20.dp)
+            )
+            .padding(20.dp)
+    ) {
+        Column {
+            Text(
+                text = "Confidence Level",
+                style = StudyBlocksTypography.subjectTitle,
+                fontSize = 20.sp,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.onSurface
+            )
+            
+            Spacer(modifier = Modifier.height(16.dp))
+            
+            // Visual Confidence Rating
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(60.dp)
+                            .background(
+                                confidenceColor.copy(alpha = 0.2f),
+                                CircleShape
+                            ),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = "${subject.confidence}",
+                            style = MaterialTheme.typography.headlineMedium,
+                            color = confidenceColor,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+                    
+                    Spacer(modifier = Modifier.height(8.dp))
+                    
+                    Text(
+                        text = "Current",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+                
+                Column(
+                    modifier = Modifier.weight(1f).padding(horizontal = 16.dp)
+                ) {
+                    Text(
+                        text = when (subject.confidence) {
+                            in 1..3 -> "Need Focus"
+                            in 4..6 -> "Making Progress"
+                            in 7..8 -> "Pretty Confident"
+                            else -> "Very Confident"
+                        },
+                        style = MaterialTheme.typography.headlineSmall,
+                        fontWeight = FontWeight.SemiBold,
+                        color = confidenceColor
+                    )
+                    
+                    Text(
+                        text = when (subject.confidence) {
+                            in 1..3 -> "Consider more study time"
+                            in 4..6 -> "You're learning well"
+                            in 7..8 -> "Great understanding"
+                            else -> "Mastery level!"
+                        },
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
+            
+            Spacer(modifier = Modifier.height(20.dp))
+            
+            // Interactive Slider
+            Text(
+                text = "Adjust confidence (1-10):",
+                style = MaterialTheme.typography.titleSmall,
+                fontWeight = FontWeight.Medium,
+                color = MaterialTheme.colorScheme.onSurface
+            )
+            
+            Spacer(modifier = Modifier.height(8.dp))
+            
+            Slider(
+                value = subject.confidence.toFloat(),
+                onValueChange = { onConfidenceChange(it.toInt()) },
+                valueRange = 1f..10f,
+                steps = 8,
+                modifier = Modifier.fillMaxWidth(),
+                colors = SliderDefaults.colors(
+                    thumbColor = confidenceColor,
+                    activeTrackColor = confidenceColor,
+                    inactiveTrackColor = confidenceColor.copy(alpha = 0.3f)
+                )
+            )
+        }
+    }
+}
+
+@Composable
+fun ModernStudyStatsCard(stats: StudyStats, subject: Subject) {
+    val confidenceColor = when (subject.confidence) {
+        in 1..3 -> Color(0xFFEF5350)
+        in 4..6 -> Color(0xFFFF9800)
+        in 7..8 -> Color(0xFF66BB6A)
+        else -> Color(0xFF42A5F5)
+    }
+    
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(
+                Color.White,
+                RoundedCornerShape(20.dp)
+            )
+            .padding(20.dp)
+    ) {
+        Column {
+            Text(
+                text = "Study Progress",
+                style = StudyBlocksTypography.subjectTitle,
+                fontSize = 20.sp,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.onSurface
+            )
+            
+            Spacer(modifier = Modifier.height(16.dp))
+            
+            // Statistics Grid
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceEvenly
+            ) {
+                ModernStatItem(
+                    label = "XP Earned",
+                    value = "${stats.totalXP}",
+                    color = confidenceColor,
+                    icon = "⭐"
+                )
+                ModernStatItem(
+                    label = "Study Time",
+                    value = "${stats.totalMinutes / 60}h ${stats.totalMinutes % 60}m",
+                    color = MaterialTheme.colorScheme.secondary,
+                    icon = "⏱️"
+                )
+                ModernStatItem(
+                    label = "Blocks",
+                    value = "${stats.completedBlocks}/${stats.totalBlocks}",
+                    color = MaterialTheme.colorScheme.tertiary,
+                    icon = "📊"
+                )
+            }
+            
+            Spacer(modifier = Modifier.height(20.dp))
+            
+            // Study Insights
+            if (stats.totalBlocks > 0) {
+                val averageSessionTime = if (stats.completedBlocks > 0) stats.totalMinutes / stats.completedBlocks else 0
+                
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .background(
+                            confidenceColor.copy(alpha = 0.1f),
+                            RoundedCornerShape(12.dp)
+                        )
+                        .padding(16.dp)
+                ) {
+                    Column {
+                        Text(
+                            text = "Study Insights",
+                            style = MaterialTheme.typography.titleSmall,
+                            fontWeight = FontWeight.SemiBold,
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                        
+                        Spacer(modifier = Modifier.height(8.dp))
+                        
+                        Text(
+                            text = "Average session: ${averageSessionTime} minutes",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        
+                        if (stats.totalXP > 0) {
+                            Text(
+                                text = "XP rate: ${(stats.totalXP.toFloat() / (stats.totalMinutes / 60f)).toInt()} XP/hour",
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun ModernStatItem(
+    label: String,
+    value: String,
+    color: Color,
+    icon: String
+) {
+    Column(
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        Text(
+            text = icon,
+            fontSize = 24.sp
+        )
+        
+        Spacer(modifier = Modifier.height(4.dp))
+        
+        Text(
+            text = value,
+            style = MaterialTheme.typography.titleMedium,
+            fontWeight = FontWeight.Bold,
+            color = color
+        )
+        Text(
+            text = label,
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            textAlign = TextAlign.Center
+        )
+    }
+}
+
 data class StudyStats(
     val totalBlocks: Int = 0,
     val completedBlocks: Int = 0,
-    val totalMinutes: Int = 0
+    val totalMinutes: Int = 0,
+    val totalXP: Int = 0
 )

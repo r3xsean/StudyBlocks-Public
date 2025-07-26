@@ -6,6 +6,7 @@ import com.example.studyblocks.data.local.dao.UserDao
 import com.example.studyblocks.data.model.Subject
 import com.example.studyblocks.data.model.OnboardingSchedulePreferences
 import com.example.studyblocks.data.model.SchedulePreferences
+import com.example.studyblocks.data.model.SubjectGrouping
 import com.example.studyblocks.repository.StudyRepository
 import com.example.studyblocks.repository.SchedulingResult
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -33,8 +34,15 @@ class OnboardingViewModel @Inject constructor(
     private val _scheduleResult = MutableStateFlow<SchedulingResult?>(null)
     val scheduleResult: StateFlow<SchedulingResult?> = _scheduleResult.asStateFlow()
     
+    private val _currentBlockDuration = MutableStateFlow(60)
+    val currentBlockDuration: StateFlow<Int> = _currentBlockDuration.asStateFlow()
+    
     private var pendingSubjects: List<Subject> = emptyList()
-    private var pendingPreferences: OnboardingSchedulePreferences? = null
+    private var pendingScheduleHorizonWeeks: Int = 3
+    private var pendingBlocksPerWeekday: Int = 3
+    private var pendingBlocksPerWeekend: Int = 2
+    private var pendingBlockDurationMinutes: Int = 60
+    private var pendingSubjectGrouping: SubjectGrouping = SubjectGrouping.BALANCED
     
     init {
         println("DEBUG OnboardingViewModel: OnboardingViewModel initialized - Instance: ${this.hashCode()}")
@@ -46,9 +54,37 @@ class OnboardingViewModel @Inject constructor(
         subjects.forEach { println("DEBUG OnboardingViewModel: Subject: ${it.name}") }
     }
     
+    fun setScheduleHorizonWeeks(weeks: Int) {
+        pendingScheduleHorizonWeeks = weeks
+        println("DEBUG OnboardingViewModel: Set schedule horizon: $weeks weeks - Instance: ${this.hashCode()}")
+    }
+    
+    fun setDailyBlocks(weekdayBlocks: Int, weekendBlocks: Int) {
+        pendingBlocksPerWeekday = weekdayBlocks
+        pendingBlocksPerWeekend = weekendBlocks
+        println("DEBUG OnboardingViewModel: Set daily blocks: weekday=$weekdayBlocks, weekend=$weekendBlocks - Instance: ${this.hashCode()}")
+    }
+    
+    fun setBlockDuration(durationMinutes: Int) {
+        pendingBlockDurationMinutes = durationMinutes
+        _currentBlockDuration.value = durationMinutes
+        println("DEBUG OnboardingViewModel: Set block duration: $durationMinutes minutes - Instance: ${this.hashCode()}")
+    }
+    
+    fun setSubjectGrouping(grouping: SubjectGrouping) {
+        pendingSubjectGrouping = grouping
+        println("DEBUG OnboardingViewModel: Set subject grouping: $grouping - Instance: ${this.hashCode()}")
+    }
+    
+    @Deprecated("Use individual setters instead")
     fun setSchedulePreferences(preferences: OnboardingSchedulePreferences) {
-        pendingPreferences = preferences
-        println("DEBUG OnboardingViewModel: Set schedule preferences: $preferences - Instance: ${this.hashCode()}")
+        // Keep for backward compatibility if needed
+        pendingScheduleHorizonWeeks = preferences.scheduleHorizonDays / 7
+        pendingBlocksPerWeekday = preferences.blocksPerWeekday
+        pendingBlocksPerWeekend = preferences.blocksPerWeekend
+        pendingBlockDurationMinutes = preferences.defaultBlockDurationMinutes
+        pendingSubjectGrouping = preferences.subjectGrouping
+        println("DEBUG OnboardingViewModel: Set schedule preferences (deprecated): $preferences - Instance: ${this.hashCode()}")
     }
     
     fun completeOnboarding(userId: String) {
@@ -59,7 +95,11 @@ class OnboardingViewModel @Inject constructor(
                 
                 println("DEBUG OnboardingViewModel: Starting onboarding completion for userId: $userId - Instance: ${this.hashCode()}")
                 println("DEBUG OnboardingViewModel: pendingSubjects count: ${pendingSubjects.size}")
-                println("DEBUG OnboardingViewModel: pendingPreferences: $pendingPreferences")
+                println("DEBUG OnboardingViewModel: pendingScheduleHorizonWeeks: $pendingScheduleHorizonWeeks")
+                println("DEBUG OnboardingViewModel: pendingBlocksPerWeekday: $pendingBlocksPerWeekday")
+                println("DEBUG OnboardingViewModel: pendingBlocksPerWeekend: $pendingBlocksPerWeekend")
+                println("DEBUG OnboardingViewModel: pendingBlockDurationMinutes: $pendingBlockDurationMinutes")
+                println("DEBUG OnboardingViewModel: pendingSubjectGrouping: $pendingSubjectGrouping")
                 
                 // Save subjects with userId
                 val subjectsWithUserId = pendingSubjects.map { subject ->
@@ -73,11 +113,16 @@ class OnboardingViewModel @Inject constructor(
                 }
                 
                 // Save schedule preferences
-                pendingPreferences?.let { prefs ->
-                    val schedulePreferences = prefs.toSchedulePreferences(userId)
-                    studyRepository.insertSchedulePreferences(schedulePreferences)
-                    println("DEBUG OnboardingViewModel: Saved schedule preferences: $schedulePreferences")
-                }
+                val schedulePreferences = SchedulePreferences(
+                    userId = userId,
+                    scheduleHorizonDays = pendingScheduleHorizonWeeks * 7,
+                    blocksPerWeekday = pendingBlocksPerWeekday,
+                    blocksPerWeekend = pendingBlocksPerWeekend,
+                    defaultBlockDurationMinutes = pendingBlockDurationMinutes,
+                    subjectGrouping = pendingSubjectGrouping
+                )
+                studyRepository.insertSchedulePreferences(schedulePreferences)
+                println("DEBUG OnboardingViewModel: Saved schedule preferences: $schedulePreferences")
                 
                 // Update user to mark onboarding as complete
                 val currentUser = userDao.getUserById(userId)
@@ -128,6 +173,10 @@ class OnboardingViewModel @Inject constructor(
         _onboardingComplete.value = false
         _scheduleResult.value = null
         pendingSubjects = emptyList()
-        pendingPreferences = null
+        pendingScheduleHorizonWeeks = 3
+        pendingBlocksPerWeekday = 3
+        pendingBlocksPerWeekend = 2
+        pendingBlockDurationMinutes = 60
+        pendingSubjectGrouping = SubjectGrouping.BALANCED
     }
 }

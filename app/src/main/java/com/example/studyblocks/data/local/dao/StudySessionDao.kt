@@ -55,4 +55,7 @@ interface StudySessionDao {
     
     @Query("SELECT AVG(actualDurationMinutes) FROM study_sessions WHERE userId = :userId AND isCompleted = 1")
     suspend fun getAverageSessionDuration(userId: String): Double?
+    
+    @Query("SELECT SUM(actualDurationMinutes) FROM study_sessions WHERE subjectId = :subjectId AND isCompleted = 1")
+    suspend fun getStudyMinutesForSubject(subjectId: String): Int?
 }

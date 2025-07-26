@@ -5,12 +5,15 @@ import androidx.lifecycle.viewModelScope
 import com.example.studyblocks.data.model.Subject
 import com.example.studyblocks.data.model.SubjectIcon
 import com.example.studyblocks.data.model.SubjectIconMatcher
+import com.example.studyblocks.data.model.SubjectGrouping
 import com.example.studyblocks.data.model.User
+import com.example.studyblocks.data.model.SchedulePreferences
 import com.example.studyblocks.repository.SchedulingResult
 import com.example.studyblocks.repository.StudyRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import java.time.LocalDate
 import java.time.LocalDateTime
 import java.util.*
@@ -52,6 +55,20 @@ class SubjectsViewModel @Inject constructor(
         scope = viewModelScope,
         started = SharingStarted.WhileSubscribed(5000),
         initialValue = 3
+    )
+    
+    // Schedule preferences for the current user
+    @OptIn(ExperimentalCoroutinesApi::class)
+    val schedulePreferences: StateFlow<SchedulePreferences?> = _currentUser.flatMapLatest { user ->
+        if (user != null) {
+            studyRepository.getSchedulePreferencesFlow(user.id)
+        } else {
+            flowOf(null)
+        }
+    }.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5000),
+        initialValue = null
     )
     
     init {
@@ -189,7 +206,8 @@ class SubjectsViewModel @Inject constructor(
         blocksPerWeekday: Int? = null, 
         blocksPerWeekend: Int? = null, 
         horizon: Int? = null, 
-        blockDuration: Int? = null
+        blockDuration: Int? = null,
+        subjectGrouping: SubjectGrouping? = null
     ) {
         val currentUser = _currentUser.value ?: return
         
@@ -201,7 +219,8 @@ class SubjectsViewModel @Inject constructor(
                     blocksPerWeekday = blocksPerWeekday ?: currentUser.preferredBlocksPerDay,
                     blocksPerWeekend = blocksPerWeekend ?: 2,
                     scheduleHorizon = horizon ?: 21,
-                    blockDurationMinutes = blockDuration ?: 60
+                    blockDurationMinutes = blockDuration ?: 60,
+                    subjectGrouping = subjectGrouping
                 )
                 _scheduleResult.value = result
             } catch (e: Exception) {

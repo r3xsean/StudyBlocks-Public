@@ -28,16 +28,16 @@ data class Subject(
     
     val confidenceWeight: Double
         get() = when (confidence) {
-            1 -> 5.0   // Very low confidence gets 5x weight
-            2 -> 4.0   // Low confidence gets 4x weight 
-            3 -> 3.0   // Still struggling gets 3x weight
-            4 -> 2.5   // Below average gets 2.5x weight
-            5 -> 2.0   // Average gets 2x weight
-            6 -> 1.5   // Slightly above average gets 1.5x weight
+            1 -> 4.5   // Very low confidence gets 4.5x weight
+            2 -> 3.7   // Low confidence gets 3.7x weight 
+            3 -> 2.8   // Still struggling gets 2.8x weight
+            4 -> 2.3   // Below average gets 2.3x weight
+            5 -> 1.9   // Average gets 1.9x weight
+            6 -> 1.4   // Slightly above average gets 1.4x weight
             7 -> 1.0   // Good confidence gets normal weight
-            8 -> 0.7   // Very good gets reduced weight
-            9 -> 0.5   // Excellent gets half weight
-            10 -> 0.3  // Perfect confidence gets minimal weight
+            8 -> 0.8   // Very good gets reduced weight
+            9 -> 0.6   // Excellent gets 0.6x weight
+            10 -> 0.4  // Perfect confidence gets 0.4x weight
             else -> 1.0
         }
     

@@ -2,27 +2,32 @@ package com.example.studyblocks.data.model
 
 import kotlin.math.max
 import kotlin.math.pow
+import kotlin.math.roundToInt
 
 object XPManager {
     
-    // Base XP for entire schedule - 100% completion of all blocks gives this amount
-    private const val TOTAL_SCHEDULE_XP = 1000
+    // Base XP rate: 100 XP per hour of study time
+    private const val BASE_XP_PER_HOUR = 100
     
     /**
-     * Calculate XP for completing a study block
-     * XP is distributed equally across all subjects, then proportionally within each subject
-     * Each subject gets equal total XP regardless of time allocation
+     * Calculate XP for completing a study block with time-based scaling
+     * XP scales with total schedule time and is distributed equally across all subjects
+     * Each subject gets equal total XP regardless of confidence or time allocation
      */
     fun calculateBlockXP(
         blockDurationMinutes: Int,
         totalSubjectTimeMinutes: Int,
         totalSubjectCount: Int,
+        totalScheduleTimeMinutes: Int,
         subject: Subject
     ): Int {
-        if (totalSubjectTimeMinutes <= 0 || totalSubjectCount <= 0) return 0
+        if (totalSubjectTimeMinutes <= 0 || totalSubjectCount <= 0 || totalScheduleTimeMinutes <= 0) return 0
+        
+        // Calculate total XP for entire schedule based on time (100 XP per hour)
+        val totalScheduleXP = (totalScheduleTimeMinutes / 60.0 * BASE_XP_PER_HOUR)
         
         // Each subject gets equal share of total XP
-        val xpPerSubject = TOTAL_SCHEDULE_XP.toDouble() / totalSubjectCount
+        val xpPerSubject = totalScheduleXP / totalSubjectCount
         
         // Within each subject, XP is distributed proportionally by time
         val subjectXpRate = xpPerSubject / totalSubjectTimeMinutes
@@ -30,7 +35,8 @@ object XPManager {
         // XP for this block based on its duration within the subject
         val blockXp = blockDurationMinutes * subjectXpRate
         
-        return blockXp.toInt()
+        // Use proper rounding to minimize XP loss
+        return blockXp.roundToInt()
     }
     
     /**
@@ -42,9 +48,9 @@ object XPManager {
         customBlockDurationMinutes: Int
     ): Int {
         // Base XP for custom block: 100 XP per hour
-        val customXP = (customBlockDurationMinutes / 60.0 * 100)
+        val customXP = (customBlockDurationMinutes / 60.0 * BASE_XP_PER_HOUR)
         
-        return customXP.toInt()
+        return customXP.roundToInt()
     }
     
     /**
@@ -62,7 +68,7 @@ object XPManager {
      * Calculate XP required for a specific level (for subjects)
      */
     fun getXpForLevel(level: Int): Int {
-        return if (level == 1) 0 else (100 * ((level - 1) * 1.5).pow(1.2)).toInt()
+        return if (level == 1) 0 else (100 * ((level - 1) * 1.5).pow(1.2)).roundToInt()
     }
     
     /**
@@ -87,7 +93,7 @@ object XPManager {
      * Calculate XP required for a specific global level
      */
     fun getGlobalXpForLevel(level: Int): Int {
-        return if (level == 1) 0 else (200 * ((level - 1) * 1.8).pow(1.3)).toInt()
+        return if (level == 1) 0 else (200 * ((level - 1) * 1.8).pow(1.3)).roundToInt()
     }
     
     /**
@@ -104,6 +110,19 @@ object XPManager {
         )
     }
     
+    /**
+     * Calculate XP for completing a study block (simplified approach)
+     * Uses consistent time-based XP for all blocks: 100 XP per hour
+     * @deprecated Use calculateBlockXP with proper schedule context instead
+     */
+    fun calculateXPForBlock(
+        block: StudyBlock,
+        subject: Subject
+    ): Int {
+        // Use consistent time-based XP calculation for all blocks
+        return (block.durationMinutes / 60.0 * BASE_XP_PER_HOUR).roundToInt()
+    }
+
     /**
      * Update user with new global XP and level based on subjects
      */

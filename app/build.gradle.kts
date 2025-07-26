@@ -78,8 +78,10 @@ dependencies {
     // DataStore
     implementation(libs.androidx.datastore.preferences)
     
-    // Charts
-    implementation(libs.mpandroidchart)
+    // Charts - Vico (modern replacement for MPAndroidChart)
+    implementation("com.patrykandpatrick.vico:compose-m3:1.13.1")
+    implementation("com.patrykandpatrick.vico:compose:1.13.1")
+    implementation("com.patrykandpatrick.vico:core:1.13.1")
     
     // Coroutines
     implementation(libs.kotlinx.coroutines.android)

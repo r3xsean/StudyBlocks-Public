@@ -3,6 +3,12 @@ package com.example.studyblocks.data.model
 import androidx.room.Entity
 import androidx.room.PrimaryKey
 
+enum class SubjectGrouping(val displayName: String, val description: String) {
+    MOST_GROUPED("Most Grouped", "Study the same subject for multiple blocks in a row"),
+    BALANCED("Balanced", "Mix subjects evenly throughout each day"),
+    LEAST_GROUPED("Least Grouped", "Maximize subject variety with minimal repetition")
+}
+
 @Entity(tableName = "schedule_preferences")
 data class SchedulePreferences(
     @PrimaryKey val userId: String,
@@ -10,6 +16,7 @@ data class SchedulePreferences(
     val blocksPerWeekday: Int = 3, // Study blocks for Monday-Friday
     val blocksPerWeekend: Int = 2, // Study blocks for Saturday-Sunday
     val defaultBlockDurationMinutes: Int = 60, // Length of each study session
+    val subjectGrouping: SubjectGrouping = SubjectGrouping.BALANCED, // How to group subjects
     val createdAt: java.time.LocalDateTime = java.time.LocalDateTime.now(),
     val updatedAt: java.time.LocalDateTime = java.time.LocalDateTime.now()
 ) {
@@ -56,14 +63,16 @@ data class SchedulePreferences(
             scheduleHorizonWeeks: Int,
             blocksPerWeekday: Int,
             blocksPerWeekend: Int,
-            defaultBlockDurationMinutes: Int
+            defaultBlockDurationMinutes: Int,
+            subjectGrouping: SubjectGrouping = SubjectGrouping.BALANCED
         ): SchedulePreferences {
             return SchedulePreferences(
                 userId = userId,
                 scheduleHorizonDays = scheduleHorizonWeeks * 7,
                 blocksPerWeekday = blocksPerWeekday,
                 blocksPerWeekend = blocksPerWeekend,
-                defaultBlockDurationMinutes = defaultBlockDurationMinutes
+                defaultBlockDurationMinutes = defaultBlockDurationMinutes,
+                subjectGrouping = subjectGrouping
             )
         }
     }
@@ -74,7 +83,8 @@ data class OnboardingSchedulePreferences(
     val scheduleHorizonDays: Int = 21,
     val blocksPerWeekday: Int = 3,
     val blocksPerWeekend: Int = 2,
-    val defaultBlockDurationMinutes: Int = 60
+    val defaultBlockDurationMinutes: Int = 60,
+    val subjectGrouping: SubjectGrouping = SubjectGrouping.BALANCED
 ) {
     fun toSchedulePreferences(userId: String): SchedulePreferences {
         return SchedulePreferences(
@@ -82,7 +92,8 @@ data class OnboardingSchedulePreferences(
             scheduleHorizonDays = scheduleHorizonDays,
             blocksPerWeekday = blocksPerWeekday,
             blocksPerWeekend = blocksPerWeekend,
-            defaultBlockDurationMinutes = defaultBlockDurationMinutes
+            defaultBlockDurationMinutes = defaultBlockDurationMinutes,
+            subjectGrouping = subjectGrouping
         )
     }
 }
