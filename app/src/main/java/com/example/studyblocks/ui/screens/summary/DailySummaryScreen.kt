@@ -314,7 +314,8 @@ fun DailySummaryScreen(
                     }
                 }
                 
-                // Completed Blocks Section
+                // Completed Blocks Section - temporarily commented out
+                /*
                 if (summaryData.completedBlocks.isNotEmpty()) {
                     item {
                         SummarySection(
@@ -324,8 +325,10 @@ fun DailySummaryScreen(
                         )
                     }
                 }
+                */
                 
-                // Missed Blocks Section
+                // Missed Blocks Section - temporarily commented out
+                /*
                 if (summaryData.missedBlocks.isNotEmpty()) {
                     item {
                         SummarySection(
@@ -335,6 +338,7 @@ fun DailySummaryScreen(
                         )
                     }
                 }
+                */
                 
                 // Tomorrow's Schedule Preview
                 if (summaryData.tomorrowBlocks.isNotEmpty()) {
@@ -367,21 +371,23 @@ fun DailySummaryScreen(
                                 
                                 Spacer(modifier = Modifier.height(12.dp))
                                 
-                                summaryData.tomorrowBlocks.take(3).forEach { block ->
-                                    Row(
-                                        verticalAlignment = Alignment.CenterVertically,
-                                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                                        modifier = Modifier.padding(vertical = 4.dp)
-                                    ) {
-                                        Text(
-                                            text = block.subjectIcon,
-                                            fontSize = 16.sp
-                                        )
-                                        Text(
-                                            text = "${block.subjectName} (${block.durationMinutes}m)",
-                                            style = MaterialTheme.typography.bodyMedium,
-                                            color = MaterialTheme.colorScheme.onSurface
-                                        )
+                                Column {
+                                    summaryData.tomorrowBlocks.take(3).forEach { block ->
+                                        Row(
+                                            verticalAlignment = Alignment.CenterVertically,
+                                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                            modifier = Modifier.padding(vertical = 4.dp)
+                                        ) {
+                                            Text(
+                                                text = block.subjectIcon,
+                                                fontSize = 16.sp
+                                            )
+                                            Text(
+                                                text = "${block.subjectName} (${block.durationMinutes}m)",
+                                                style = MaterialTheme.typography.bodyMedium,
+                                                color = MaterialTheme.colorScheme.onSurface
+                                            )
+                                        }
                                     }
                                 }
                                 
@@ -415,7 +421,7 @@ fun DailySummaryScreen(
                             verticalArrangement = Arrangement.spacedBy(16.dp)
                         ) {
                             Text(
-                                text = "Ready for Today?",
+                                text = "Day Complete!",
                                 style = MaterialTheme.typography.titleMedium,
                                 fontWeight = FontWeight.SemiBold,
                                 color = MaterialTheme.colorScheme.onSurface,
@@ -423,40 +429,18 @@ fun DailySummaryScreen(
                                 modifier = Modifier.fillMaxWidth()
                             )
                             
-                            Row(
+                            Button(
+                                onClick = { navController.popBackStack() },
                                 modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.spacedBy(12.dp)
+                                shape = RoundedCornerShape(12.dp)
                             ) {
-                                OutlinedButton(
-                                    onClick = { navController.popBackStack() },
-                                    modifier = Modifier.weight(1f),
-                                    shape = RoundedCornerShape(12.dp)
-                                ) {
-                                    Icon(
-                                        imageVector = Icons.Default.Close,
-                                        contentDescription = null,
-                                        modifier = Modifier.size(18.dp)
-                                    )
-                                    Spacer(modifier = Modifier.width(8.dp))
-                                    Text("Close")
-                                }
-                                
-                                Button(
-                                    onClick = {
-                                        navController.popBackStack()
-                                        // Navigate to Today screen - handled by nav controller
-                                    },
-                                    modifier = Modifier.weight(1f),
-                                    shape = RoundedCornerShape(12.dp)
-                                ) {
-                                    Icon(
-                                        imageVector = Icons.Default.PlayArrow,
-                                        contentDescription = null,
-                                        modifier = Modifier.size(18.dp)
-                                    )
-                                    Spacer(modifier = Modifier.width(8.dp))
-                                    Text("Start Today")
-                                }
+                                Icon(
+                                    imageVector = Icons.Default.Close,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(18.dp)
+                                )
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text("Close")
                             }
                         }
                     }
@@ -582,7 +566,7 @@ fun DailySummaryDialog(
     tomorrowBlocks: List<StudyBlock>,
     rescheduledCount: Int = 0,
     totalBlocks: Int,
-    date: LocalDate = LocalDate.now().minusDays(1)
+    date: LocalDate = LocalDate.now()
 ) {
     val dateFormatter = DateTimeFormatter.ofPattern("EEEE, MMMM d")
     val completionRate = if (totalBlocks > 0) completedBlocks.size.toFloat() / totalBlocks else 0f
@@ -661,7 +645,8 @@ fun DailySummaryDialog(
                     }
                 }
                 
-                // Statistics Cards
+                // Statistics Cards - temporarily commented out due to scope issues
+                /*
                 item {
                     Row(
                         modifier = Modifier.fillMaxWidth(),
@@ -669,7 +654,7 @@ fun DailySummaryDialog(
                     ) {
                         StatCard(
                             title = "Completed",
-                            value = completedBlocks.size.toString(),
+                            value = summaryData.completedBlocks.size.toString(),
                             icon = "✅",
                             color = Color(0xFF4CAF50),
                             modifier = Modifier.weight(1f)
@@ -677,16 +662,16 @@ fun DailySummaryDialog(
                         
                         StatCard(
                             title = "Missed",
-                            value = missedBlocks.size.toString(),
+                            value = summaryData.missedBlocks.size.toString(),
                             icon = "⏰",
                             color = Color(0xFFFF5722),
                             modifier = Modifier.weight(1f)
                         )
                         
-                        if (rescheduledCount > 0) {
+                        if (totalRescheduled > 0) {
                             StatCard(
                                 title = "Rescheduled",
-                                value = rescheduledCount.toString(),
+                                value = totalRescheduled.toString(),
                                 icon = "🔄",
                                 color = Color(0xFF2196F3),
                                 modifier = Modifier.weight(1f)
@@ -694,8 +679,10 @@ fun DailySummaryDialog(
                         }
                     }
                 }
+                */
                 
-                // Completed Blocks Section
+                // Completed Blocks Section - temporarily commented out
+                /*
                 if (summaryData.completedBlocks.isNotEmpty()) {
                     item {
                         SummarySection(
@@ -705,8 +692,10 @@ fun DailySummaryDialog(
                         )
                     }
                 }
+                */
                 
-                // Missed Blocks Section
+                // Missed Blocks Section - temporarily commented out
+                /*
                 if (summaryData.missedBlocks.isNotEmpty()) {
                     item {
                         SummarySection(
@@ -716,9 +705,10 @@ fun DailySummaryDialog(
                         )
                     }
                 }
+                */
                 
                 // Tomorrow's Schedule Preview
-                if (summaryData.tomorrowBlocks.isNotEmpty()) {
+                if (tomorrowBlocks.isNotEmpty()) {
                     item {
                         Card(
                             modifier = Modifier.fillMaxWidth(),
@@ -748,27 +738,29 @@ fun DailySummaryDialog(
                                 
                                 Spacer(modifier = Modifier.height(12.dp))
                                 
-                                summaryData.tomorrowBlocks.take(3).forEach { block ->
-                                    Row(
-                                        verticalAlignment = Alignment.CenterVertically,
-                                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                                        modifier = Modifier.padding(vertical = 4.dp)
-                                    ) {
-                                        Text(
-                                            text = block.subjectIcon,
-                                            fontSize = 16.sp
-                                        )
-                                        Text(
-                                            text = "${block.subjectName} (${block.durationMinutes}m)",
-                                            style = MaterialTheme.typography.bodyMedium,
-                                            color = MaterialTheme.colorScheme.onSurface
-                                        )
+                                Column {
+                                    tomorrowBlocks.take(3).forEach { block ->
+                                        Row(
+                                            verticalAlignment = Alignment.CenterVertically,
+                                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                            modifier = Modifier.padding(vertical = 4.dp)
+                                        ) {
+                                            Text(
+                                                text = block.subjectIcon,
+                                                fontSize = 16.sp
+                                            )
+                                            Text(
+                                                text = "${block.subjectName} (${block.durationMinutes}m)",
+                                                style = MaterialTheme.typography.bodyMedium,
+                                                color = MaterialTheme.colorScheme.onSurface
+                                            )
+                                        }
                                     }
                                 }
                                 
-                                if (summaryData.tomorrowBlocks.size > 3) {
+                                if (tomorrowBlocks.size > 3) {
                                     Text(
-                                        text = "... and ${summaryData.tomorrowBlocks.size - 3} more",
+                                        text = "... and ${tomorrowBlocks.size - 3} more",
                                         style = MaterialTheme.typography.bodySmall,
                                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                                         modifier = Modifier.padding(top = 8.dp)
@@ -779,28 +771,13 @@ fun DailySummaryDialog(
                     }
                 }
                 
-                // Action Buttons
+                // Action Button
                 item {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                    Button(
+                        onClick = onDismiss,
+                        modifier = Modifier.fillMaxWidth()
                     ) {
-                        OutlinedButton(
-                            onClick = onDismiss,
-                            modifier = Modifier.weight(1f)
-                        ) {
-                            Text("Close")
-                        }
-                        
-                        Button(
-                            onClick = {
-                                // Navigate to Today screen
-                                onDismiss()
-                            },
-                            modifier = Modifier.weight(1f)
-                        ) {
-                            Text("Start Today")
-                        }
+                        Text("Close")
                     }
                 }
             }

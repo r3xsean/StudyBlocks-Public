@@ -81,159 +81,199 @@ fun ProfileScreen(
             modifier = Modifier.height(64.dp)
         )
         
-        LazyColumn(
-            modifier = Modifier.fillMaxSize(),
-            contentPadding = PaddingValues(16.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp)
-        ) {
-            // User Profile Header
-            item {
-                UserProfileHeader(
-                    user = currentUser,
-                    stats = profileStats
-                )
-            }
-            
-            // Account Section
-            item {
-                ProfileSection(
-                    title = "Account",
-                    items = listOf(
-                        ProfileItem(
-                            icon = Icons.Default.Person,
-                            title = "Profile Information",
-                            subtitle = currentUser?.displayName ?: "Not signed in",
-                            onClick = { /* Navigate to profile edit */ }
-                        ),
-                        ProfileItem(
-                            icon = Icons.Default.Email,
-                            title = "Email",
-                            subtitle = currentUser?.email ?: "",
-                            onClick = { /* Navigate to email change */ }
-                        ),
-                        ProfileItem(
-                            icon = Icons.Default.Sync,
-                            title = "Sync Data",
-                            subtitle = "Last sync: ${profileStats.lastSync}",
-                            onClick = { viewModel.syncData() }
-                        ),
-                        ProfileItem(
-                            icon = Icons.Default.RestartAlt,
-                            title = "Redo Onboarding",
-                            subtitle = "Go through the setup process again",
-                            onClick = { showRedoOnboardingDialog = true }
-                        )
+            // Body content with improved styling
+            LazyColumn(
+                modifier = Modifier.fillMaxSize(),
+                contentPadding = PaddingValues(horizontal = 16.dp, vertical = 16.dp),
+                verticalArrangement = Arrangement.spacedBy(16.dp)
+            ) {
+                // User Profile Header (simplified but modernized)
+                item {
+                    UserProfileHeader(
+                        user = currentUser,
+                        stats = profileStats
                     )
-                )
-            }
-            
-            // App Settings Section
-            item {
-                ProfileSection(
-                    title = "App Settings",
-                    items = listOf(
-                        ProfileItem(
-                            icon = Icons.Default.ColorLens,
-                            title = "Theme",
-                            subtitle = userPreferences.theme.name.lowercase().replaceFirstChar { it.uppercase() },
-                            onClick = { showThemeDialog = true }
-                        ),
-                        ProfileItem(
-                            icon = Icons.Default.Notifications,
-                            title = "Notifications",
-                            subtitle = if (userPreferences.notificationsEnabled) "Enabled" else "Disabled",
-                            onClick = { showNotificationSettings = true }
-                        ),
-                        ProfileItem(
-                            icon = Icons.Default.AccessTime,
-                            title = "Study Settings",
-                            subtitle = "Timer and focus preferences",
-                            onClick = { showStudySettings = true }
-                        ),
-                        ProfileItem(
-                            icon = Icons.Default.Translate,
-                            title = "Language",
-                            subtitle = "English (US)",
-                            onClick = { /* Navigate to language selection */ }
-                        )
-                    )
-                )
-            }
-            
-            // Data & Privacy Section
-            item {
-                ProfileSection(
-                    title = "Data & Privacy",
-                    items = listOf(
-                        ProfileItem(
-                            icon = Icons.Default.Download,
-                            title = "Export Data",
-                            subtitle = "Download your study data",
-                            onClick = { 
-                                val data = viewModel.exportData()
-                                // Handle data export - in real app would save to file or share
+                }
+                
+                // Quick Settings Cards
+                item {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        Card(
+                            modifier = Modifier
+                                .weight(1f)
+                                .clickable { showThemeDialog = true },
+                            colors = CardDefaults.cardColors(
+                                containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f)
+                            ),
+                            shape = RoundedCornerShape(16.dp)
+                        ) {
+                            Column(
+                                modifier = Modifier.padding(16.dp),
+                                horizontalAlignment = Alignment.CenterHorizontally
+                            ) {
+                                Icon(
+                                    Icons.Default.ColorLens,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.primary
+                                )
+                                Spacer(modifier = Modifier.height(8.dp))
+                                Text(
+                                    text = "Theme",
+                                    style = MaterialTheme.typography.labelMedium
+                                )
                             }
-                        ),
-                        ProfileItem(
-                            icon = Icons.Default.Security,
-                            title = "Privacy Settings",
-                            subtitle = "Manage your data privacy",
-                            onClick = { /* Navigate to privacy settings */ }
-                        ),
-                        ProfileItem(
-                            icon = Icons.Default.Delete,
-                            title = "Delete Account",
-                            subtitle = "Permanently delete your account",
-                            onClick = { viewModel.showDeleteAccountDialog() },
-                            textColor = MaterialTheme.colorScheme.error
+                        }
+                        
+                        Card(
+                            modifier = Modifier
+                                .weight(1f)
+                                .clickable { showNotificationSettings = true },
+                            colors = CardDefaults.cardColors(
+                                containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f)
+                            ),
+                            shape = RoundedCornerShape(16.dp)
+                        ) {
+                            Column(
+                                modifier = Modifier.padding(16.dp),
+                                horizontalAlignment = Alignment.CenterHorizontally
+                            ) {
+                                Icon(
+                                    Icons.Default.Notifications,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.primary
+                                )
+                                Spacer(modifier = Modifier.height(8.dp))
+                                Text(
+                                    text = "Notifications",
+                                    style = MaterialTheme.typography.labelMedium
+                                )
+                            }
+                        }
+                        
+                        Card(
+                            modifier = Modifier
+                                .weight(1f)
+                                .clickable { showStudySettings = true },
+                            colors = CardDefaults.cardColors(
+                                containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f)
+                            ),
+                            shape = RoundedCornerShape(16.dp)
+                        ) {
+                            Column(
+                                modifier = Modifier.padding(16.dp),
+                                horizontalAlignment = Alignment.CenterHorizontally
+                            ) {
+                                Icon(
+                                    Icons.Default.Settings,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.primary
+                                )
+                                Spacer(modifier = Modifier.height(8.dp))
+                                Text(
+                                    text = "Settings",
+                                    style = MaterialTheme.typography.labelMedium
+                                )
+                            }
+                        }
+                    }
+                }
+                
+                // Account Section with modern styling
+                item {
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp),
+                        shape = RoundedCornerShape(16.dp),
+                        colors = CardDefaults.cardColors(
+                            containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
                         )
-                    )
-                )
-            }
-            
-            // Support Section
-            item {
-                ProfileSection(
-                    title = "Support",
-                    items = listOf(
-                        ProfileItem(
-                            icon = Icons.AutoMirrored.Filled.Help,
-                            title = "Help & Support",
-                            subtitle = "Get help with StudyBlocks",
-                            onClick = { /* Navigate to help */ }
+                    ) {
+                        Column {
+                            Text(
+                                text = "Account",
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.Bold,
+                                modifier = Modifier.padding(20.dp, 20.dp, 20.dp, 8.dp),
+                                color = MaterialTheme.colorScheme.primary
+                            )
+                            
+                            ModernProfileItemRow(
+                                ProfileItem(
+                                    icon = Icons.Default.Person,
+                                    title = "Profile Information",
+                                    subtitle = currentUser?.displayName ?: "Not signed in",
+                                    onClick = { /* Navigate to profile edit */ }
+                                )
+                            )
+                            
+                            HorizontalDivider(
+                                modifier = Modifier.padding(horizontal = 20.dp),
+                                color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
+                            )
+                            
+                            ModernProfileItemRow(
+                                ProfileItem(
+                                    icon = Icons.Default.Email,
+                                    title = "Email",
+                                    subtitle = currentUser?.email ?: "",
+                                    onClick = { /* Navigate to email change */ }
+                                )
+                            )
+                            
+                            HorizontalDivider(
+                                modifier = Modifier.padding(horizontal = 20.dp),
+                                color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
+                            )
+                            
+                            ModernProfileItemRow(
+                                ProfileItem(
+                                    icon = Icons.Default.RestartAlt,
+                                    title = "Redo Onboarding",
+                                    subtitle = "Go through the setup process again",
+                                    onClick = { showRedoOnboardingDialog = true }
+                                )
+                            )
+                        }
+                    }
+                }
+                
+                // Sign Out Button
+                item {
+                    Card(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable { viewModel.showSignOutDialog() },
+                        colors = CardDefaults.cardColors(
+                            containerColor = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.3f)
                         ),
-                        ProfileItem(
-                            icon = Icons.Default.Info,
-                            title = "About",
-                            subtitle = "App version and information",
-                            onClick = { showAboutDialog = true }
-                        ),
-                        ProfileItem(
-                            icon = Icons.Default.RateReview,
-                            title = "Rate App",
-                            subtitle = "Leave a review on the Play Store",
-                            onClick = { /* Open Play Store */ }
-                        )
-                    )
-                )
-            }
-            
-            // Sign Out Button
-            item {
-                Spacer(modifier = Modifier.height(16.dp))
-                OutlinedButton(
-                    onClick = { viewModel.showSignOutDialog() },
-                    modifier = Modifier.fillMaxWidth(),
-                    colors = ButtonDefaults.outlinedButtonColors(
-                        contentColor = MaterialTheme.colorScheme.error
-                    )
-                ) {
-                    Icon(Icons.AutoMirrored.Filled.ExitToApp, contentDescription = null)
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text("Sign Out")
+                        shape = RoundedCornerShape(16.dp)
+                    ) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(20.dp),
+                            horizontalArrangement = Arrangement.Center,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(
+                                Icons.AutoMirrored.Filled.ExitToApp,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.error
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(
+                                text = "Sign Out",
+                                style = MaterialTheme.typography.titleMedium,
+                                color = MaterialTheme.colorScheme.error,
+                                fontWeight = FontWeight.Medium
+                            )
+                        }
+                    }
                 }
             }
-        }
     }
     
     // Dialogs
@@ -529,50 +569,18 @@ fun QuickStat(
 }
 
 @Composable
-fun ProfileSection(
-    title: String,
-    items: List<ProfileItem>
-) {
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
-        shape = RoundedCornerShape(12.dp)
-    ) {
-        Column {
-            Text(
-                text = title,
-                fontSize = 18.sp,
-                fontWeight = FontWeight.Bold,
-                modifier = Modifier.padding(16.dp, 16.dp, 16.dp, 8.dp),
-                color = MaterialTheme.colorScheme.primary
-            )
-            
-            items.forEachIndexed { index, item ->
-                ProfileItemRow(item = item)
-                if (index < items.size - 1) {
-                    HorizontalDivider(
-                        modifier = Modifier.padding(horizontal = 16.dp),
-                        color = MaterialTheme.colorScheme.outlineVariant
-                    )
-                }
-            }
-        }
-    }
-}
-
-@Composable
-fun ProfileItemRow(item: ProfileItem) {
+fun ModernProfileItemRow(item: ProfileItem) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
             .clickable { item.onClick() }
-            .padding(16.dp),
+            .padding(20.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
         Icon(
             imageVector = item.icon,
             contentDescription = null,
-            tint = item.iconColor ?: MaterialTheme.colorScheme.onSurfaceVariant,
+            tint = item.iconColor ?: MaterialTheme.colorScheme.primary,
             modifier = Modifier.size(24.dp)
         )
         
@@ -581,14 +589,14 @@ fun ProfileItemRow(item: ProfileItem) {
         Column(modifier = Modifier.weight(1f)) {
             Text(
                 text = item.title,
-                fontSize = 16.sp,
+                style = MaterialTheme.typography.titleSmall,
                 fontWeight = FontWeight.Medium,
                 color = item.textColor ?: MaterialTheme.colorScheme.onSurface
             )
             if (item.subtitle.isNotEmpty()) {
                 Text(
                     text = item.subtitle,
-                    fontSize = 14.sp,
+                    style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
@@ -597,7 +605,8 @@ fun ProfileItemRow(item: ProfileItem) {
         Icon(
             imageVector = Icons.Default.ChevronRight,
             contentDescription = null,
-            tint = MaterialTheme.colorScheme.onSurfaceVariant
+            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.size(16.dp)
         )
     }
 }

@@ -13,6 +13,7 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
@@ -107,10 +108,9 @@ class OnboardingViewModel @Inject constructor(
                 }
                 
                 println("DEBUG OnboardingViewModel: Saving ${subjectsWithUserId.size} subjects")
-                subjectsWithUserId.forEach { subject ->
-                    studyRepository.insertSubject(subject)
-                    println("DEBUG OnboardingViewModel: Saved subject: ${subject.name}")
-                }
+                // Insert all subjects in a single transaction for better reliability
+                studyRepository.insertSubjects(subjectsWithUserId)
+                println("DEBUG OnboardingViewModel: Batch saved ${subjectsWithUserId.size} subjects")
                 
                 // Save schedule preferences
                 val schedulePreferences = SchedulePreferences(
@@ -131,20 +131,44 @@ class OnboardingViewModel @Inject constructor(
                     val updatedUser = user.copy(hasCompletedOnboarding = true)
                     userDao.insertUser(updatedUser)
                     println("DEBUG OnboardingViewModel: Updated user to: $updatedUser")
+                } ?: run {
+                    // If no user exists with this ID, update the current user (fallback for open source version)
+                    println("DEBUG OnboardingViewModel: No user found with ID $userId, trying to update current user")
+                    val fallbackUser = userDao.getCurrentUser()
+                    fallbackUser?.let { user ->
+                        val updatedUser = user.copy(hasCompletedOnboarding = true)
+                        userDao.insertUser(updatedUser)
+                        println("DEBUG OnboardingViewModel: Updated fallback user to: $updatedUser")
+                    }
                 }
                 
                 // Generate initial schedule after subjects and preferences are saved
                 if (subjectsWithUserId.isNotEmpty()) {
                     try {
                         println("DEBUG OnboardingViewModel: Generating schedule for ${subjectsWithUserId.size} subjects")
-                        val scheduleResult = studyRepository.generateNewSchedule(userId)
-                        _scheduleResult.value = scheduleResult
-                        println("DEBUG OnboardingViewModel: Schedule generation completed with ${scheduleResult.totalBlocks} blocks")
+                        
+                        // Add a small delay to ensure all database operations are completed
+                        kotlinx.coroutines.delay(500)
+                        
+                        // Verify subjects were saved by re-querying
+                        val savedSubjects = studyRepository.getAllSubjects(userId).first()
+                        println("DEBUG OnboardingViewModel: Verified ${savedSubjects.size} subjects in database")
+                        
+                        if (savedSubjects.isNotEmpty()) {
+                            val scheduleResult = studyRepository.generateNewSchedule(userId)
+                            _scheduleResult.value = scheduleResult
+                            println("DEBUG OnboardingViewModel: Schedule generation completed with ${scheduleResult.totalBlocks} blocks")
+                        } else {
+                            println("DEBUG OnboardingViewModel: No subjects found in database after save - schedule generation skipped")
+                        }
                     } catch (scheduleError: Exception) {
                         // Log but don't fail onboarding if schedule generation fails
                         // The user can regenerate schedule later from subjects screen
                         println("DEBUG OnboardingViewModel: Schedule generation failed: ${scheduleError.message}")
+                        scheduleError.printStackTrace()
                     }
+                } else {
+                    println("DEBUG OnboardingViewModel: No subjects to save - schedule generation skipped")
                 }
                 
                 _onboardingComplete.value = true

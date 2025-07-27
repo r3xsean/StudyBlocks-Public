@@ -35,12 +35,12 @@ fun WeeklyCompletionChart(
     Box(
         modifier = modifier
             .fillMaxWidth()
-            .height(300.dp) // Increased height to accommodate better legend layout
+            .wrapContentHeight() // Use wrap content for better responsive behavior
             .background(
                 Color.White,
                 RoundedCornerShape(20.dp)
             )
-            .padding(20.dp)
+            .padding(12.dp) // Further reduced padding for narrow screens
     ) {
         Column {
             Text(
@@ -58,7 +58,7 @@ fun WeeklyCompletionChart(
             
             Spacer(modifier = Modifier.height(16.dp))
             
-            if (weeklyData.isEmpty() || weeklyData.all { it.second == 0 }) {
+            if (weeklyData.isEmpty()) {
                 Box(
                     modifier = Modifier.fillMaxSize(),
                     contentAlignment = Alignment.Center
@@ -70,11 +70,11 @@ fun WeeklyCompletionChart(
                     )
                 }
             } else {
-
-                
                 Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceEvenly,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 4.dp), // Add horizontal padding for better spacing
+                    horizontalArrangement = Arrangement.SpaceEvenly, // Use SpaceEvenly for equal spacing
                     verticalAlignment = Alignment.Bottom
                 ) {
                     weeklyData.forEach { (day, totalBlocks, completionPercentage) ->
@@ -84,7 +84,8 @@ fun WeeklyCompletionChart(
                             completionPercentage = completionPercentage,
                             maxPercentage = maxPercentage,
                             animationDelay = weeklyData.indexOf(Triple(day, totalBlocks, completionPercentage)) * 100,
-                            animationDuration = animationDuration
+                            animationDuration = animationDuration,
+                            modifier = Modifier.weight(1f, fill = false) // Add weight for responsive sizing
                         )
                     }
                 }
@@ -236,7 +237,8 @@ private fun CompletionPercentageColumn(
     completionPercentage: Int,
     maxPercentage: Int,
     animationDelay: Int = 0,
-    animationDuration: Int = 1000
+    animationDuration: Int = 1000,
+    modifier: Modifier = Modifier
 ) {
     val animatedHeight by animateFloatAsState(
         targetValue = if (maxPercentage > 0) (completionPercentage.toFloat() / maxPercentage) else 0f,
@@ -268,11 +270,11 @@ private fun CompletionPercentageColumn(
     
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
-        modifier = Modifier.width(60.dp)
+        modifier = modifier.widthIn(min = 32.dp, max = 48.dp) // Responsive width based on available space
     ) {
         Box(
             modifier = Modifier
-                .width(32.dp)
+                .fillMaxWidth(0.7f) // Use percentage of column width for responsiveness
                 .height(120.dp),
             contentAlignment = Alignment.BottomCenter
         ) {
@@ -327,13 +329,13 @@ private fun CompletionPercentageColumn(
         
         Spacer(modifier = Modifier.height(4.dp))
         
-        // Day label - make it more prominent
+        // Day label - make it more prominent but smaller to fit
         Text(
             text = label,
             style = MaterialTheme.typography.labelSmall,
             fontWeight = FontWeight.Bold,
             color = MaterialTheme.colorScheme.primary,
-            fontSize = 12.sp,
+            fontSize = 10.sp, // Reduced font size
             maxLines = 1
         )
     }
@@ -390,11 +392,11 @@ private fun ComparisonBarColumn(
     
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
-        modifier = Modifier.width(60.dp)
+        modifier = Modifier.width(45.dp) // Reduced width to fit all 7 days
     ) {
         Box(
             modifier = Modifier
-                .width(32.dp)
+                .fillMaxWidth(0.7f) // Use percentage of column width for responsiveness
                 .height(120.dp),
             contentAlignment = Alignment.BottomCenter
         ) {
@@ -464,7 +466,9 @@ private fun ComparisonBarColumn(
         Text(
             text = label,
             style = MaterialTheme.typography.labelSmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            fontSize = 10.sp, // Smaller font for better fit
+            maxLines = 1
         )
     }
 }
@@ -547,7 +551,9 @@ private fun AnimatedBarColumn(
         Text(
             text = label,
             style = MaterialTheme.typography.labelSmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            fontSize = 10.sp, // Smaller font for better fit
+            maxLines = 1
         )
     }
 }
@@ -560,11 +566,12 @@ fun ProductivityHeatmap(
     Box(
         modifier = modifier
             .fillMaxWidth()
+            .wrapContentHeight() // Use wrap content for better responsive behavior
             .background(
                 Color.White,
                 RoundedCornerShape(20.dp)
             )
-            .padding(20.dp)
+            .padding(12.dp) // Further reduced padding for narrow screens
     ) {
         Column {
             Text(
@@ -619,18 +626,20 @@ private fun HeatmapGrid(hourlyData: Map<Int, Double>) {
         
         timePeriods.forEach { (period, hours) ->
             Row(
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                verticalAlignment = Alignment.CenterVertically
+                horizontalArrangement = Arrangement.spacedBy(4.dp), // Reduced spacing for narrow screens
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.fillMaxWidth()
             ) {
                 Text(
                     text = period,
-                    style = MaterialTheme.typography.labelMedium,
+                    style = MaterialTheme.typography.labelSmall, // Smaller text for responsiveness
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.widthIn(min = 80.dp, max = 120.dp)
+                    modifier = Modifier.width(80.dp) // Fixed width to prevent squishing
                 )
                 
                 Row(
-                    horizontalArrangement = Arrangement.spacedBy(4.dp)
+                    horizontalArrangement = Arrangement.spacedBy(2.dp), // Reduced spacing between cells
+                    modifier = Modifier.weight(1f) // Take up remaining space
                 ) {
                     hours.forEach { hour ->
                         val productivity = hourlyData[hour] ?: 0.0
@@ -639,7 +648,8 @@ private fun HeatmapGrid(hourlyData: Map<Int, Double>) {
                         HeatmapCell(
                             hour = hour,
                             intensity = intensity.toFloat(),
-                            productivity = productivity
+                            productivity = productivity,
+                            modifier = Modifier.weight(1f) // Make cells fill available space evenly
                         )
                     }
                 }
@@ -689,7 +699,8 @@ private fun HeatmapGrid(hourlyData: Map<Int, Double>) {
 private fun HeatmapCell(
     hour: Int,
     intensity: Float,
-    productivity: Double
+    productivity: Double,
+    modifier: Modifier = Modifier
 ) {
     val timeString = when {
         hour == 0 -> "12 AM"
@@ -708,21 +719,22 @@ private fun HeatmapCell(
         state = rememberTooltipState()
     ) {
         Box(
-            modifier = Modifier
-                .size(32.dp)
+            modifier = modifier
+                .aspectRatio(1f) // Maintain square aspect ratio
+                .sizeIn(minWidth = 20.dp, minHeight = 20.dp, maxWidth = 36.dp, maxHeight = 36.dp) // Responsive sizing
                 .background(
                     MaterialTheme.colorScheme.primary.copy(
                         alpha = 0.1f + (intensity * 0.7f)
                     ),
-                    RoundedCornerShape(6.dp)
+                    RoundedCornerShape(4.dp) // Smaller corner radius for smaller cells
                 )
-                .padding(2.dp),
+                .padding(1.dp), // Reduced padding
             contentAlignment = Alignment.Center
         ) {
             Text(
                 text = hour.toString(),
                 style = MaterialTheme.typography.labelSmall,
-                fontSize = 10.sp,
+                fontSize = 9.sp, // Smaller font for better responsiveness
                 color = if (intensity > 0.5f) Color.White else MaterialTheme.colorScheme.onSurface,
                 fontWeight = if (intensity > 0.7f) FontWeight.Bold else FontWeight.Normal
             )
@@ -744,7 +756,7 @@ fun SubjectDistributionChart(
                 Color.White,
                 RoundedCornerShape(20.dp)
             )
-            .padding(20.dp)
+            .padding(16.dp) // Reduced padding for better space utilization
     ) {
         Column {
             Text(

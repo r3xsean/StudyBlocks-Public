@@ -18,8 +18,9 @@ import androidx.compose.ui.Modifier
 import androidx.core.view.WindowCompat
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.compose.rememberNavController
-import com.example.studyblocks.auth.AuthState
-import com.example.studyblocks.auth.AuthViewModel
+// Firebase Auth disabled for open source version - these imports are commented out
+// import com.example.studyblocks.auth.AuthState
+// import com.example.studyblocks.auth.AuthViewModel
 import com.example.studyblocks.data.model.AppTheme
 import com.example.studyblocks.navigation.StudyBlocksBottomNavigation
 import com.example.studyblocks.navigation.StudyBlocksNavigation
@@ -85,33 +86,13 @@ class MainActivity : ComponentActivity() {
         WindowCompat.setDecorFitsSystemWindows(window, false)
         
         setContent {
-            val authViewModel: AuthViewModel = hiltViewModel(this@MainActivity)
-            val authState by authViewModel.authState.collectAsState()
-            val isFirstTimeLogin by authViewModel.isFirstTimeLogin.collectAsState()
+            // Firebase Auth disabled for open source version - using simplified approach
+            // For open source version, skip authentication and go directly to main app
             
-            println("DEBUG MainActivity: setContent recomposed - authState=$authState, isFirstTimeLogin=$isFirstTimeLogin")
-            println("DEBUG MainActivity: ViewModel instance: ${authViewModel.hashCode()}")
+            // Get theme preference - using ProfileViewModel directly since auth is disabled
+            val profileViewModel: ProfileViewModel = hiltViewModel()
             
-            // Force recomposition tracking
-            LaunchedEffect(authState) {
-                println("DEBUG MainActivity: authState changed to $authState")
-                println("DEBUG MainActivity: After authState change - isAuthenticated=${authState is AuthState.Authenticated}, needsOnboarding=${(authState is AuthState.Authenticated) && isFirstTimeLogin}, showBottomNav=${(authState is AuthState.Authenticated) && !isFirstTimeLogin}")
-            }
-            
-            LaunchedEffect(isFirstTimeLogin) {
-                println("DEBUG MainActivity: isFirstTimeLogin changed to $isFirstTimeLogin")
-                println("DEBUG MainActivity: After isFirstTimeLogin change - isAuthenticated=${authState is AuthState.Authenticated}, needsOnboarding=${(authState is AuthState.Authenticated) && isFirstTimeLogin}, showBottomNav=${(authState is AuthState.Authenticated) && !isFirstTimeLogin}")
-            }
-            
-            // Get theme preference if user is authenticated
-            val profileViewModel: ProfileViewModel? = if (authState is AuthState.Authenticated) {
-                hiltViewModel()
-            } else null
-            
-            val userPreferences by (profileViewModel?.userPreferences?.collectAsState() 
-                ?: remember { androidx.compose.runtime.mutableStateOf(
-                    com.example.studyblocks.data.model.UserPreferences("")
-                ) })
+            val userPreferences by profileViewModel.userPreferences.collectAsState()
             
             // Determine dark theme based on user preference
             val darkTheme = when (userPreferences.theme) {
@@ -123,19 +104,13 @@ class MainActivity : ComponentActivity() {
             StudyBlocksTheme(darkTheme = darkTheme) {
                 val navController = rememberNavController()
                 
-                // Don't evaluate these values until auth state is not loading
-                val isAuthenticated = authState is AuthState.Authenticated
-                val needsOnboarding = isAuthenticated && isFirstTimeLogin
-                val showBottomNav = isAuthenticated && !needsOnboarding
+                // Firebase Auth disabled for open source version - simplified navigation
+                val isAuthenticated = true // Always authenticated in open source version
                 
-                // Debug logging (remove in production)
-                LaunchedEffect(authState, isFirstTimeLogin) {
-                    println("DEBUG MainActivity: authState = $authState")
-                    println("DEBUG MainActivity: isFirstTimeLogin = $isFirstTimeLogin")
-                    println("DEBUG MainActivity: isAuthenticated = $isAuthenticated")
-                    println("DEBUG MainActivity: needsOnboarding = $needsOnboarding")
-                    println("DEBUG MainActivity: showBottomNav = $showBottomNav")
-                }
+                // Check if onboarding is needed by checking if user has any subjects
+                val needsOnboarding by profileViewModel.needsOnboarding.collectAsState()
+                
+                val showBottomNav = isAuthenticated && !needsOnboarding
                 
                 Scaffold(
                     modifier = Modifier.fillMaxSize(),
@@ -152,7 +127,7 @@ class MainActivity : ComponentActivity() {
                         navController = navController,
                         isAuthenticated = isAuthenticated,
                         paddingValues = paddingValues,
-                        authState = authState,
+                        // authState = authState, // Disabled for open source version
                         needsOnboarding = needsOnboarding
                     )
                 }

@@ -1,5 +1,9 @@
 package com.example.studyblocks.di
 
+// Firebase dependencies disabled for open source version
+// Uncomment and add firebase dependencies to build.gradle if you want to use Firebase
+
+/*
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
 import dagger.Module
@@ -24,3 +28,4 @@ object FirebaseModule {
         return FirebaseFirestore.getInstance()
     }
 }
+*/

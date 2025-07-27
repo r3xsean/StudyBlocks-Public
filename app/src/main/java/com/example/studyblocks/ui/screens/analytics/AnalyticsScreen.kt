@@ -46,6 +46,10 @@ import com.example.studyblocks.ui.components.WeeklyCompletionChart
 import com.example.studyblocks.ui.components.ProductivityHeatmap
 import com.example.studyblocks.ui.components.SubjectDistributionChart
 import com.example.studyblocks.ui.components.InsightCard
+import com.example.studyblocks.ui.components.GlassMorphicCard
+import com.example.studyblocks.ui.components.ProgressRingCard
+import com.example.studyblocks.ui.components.ModernMetricCard
+import com.example.studyblocks.ui.components.PillSegmentedControl
 import com.example.studyblocks.ui.theme.StudyBlocksTypography
 import com.example.studyblocks.ui.theme.StudyGradients
 import com.example.studyblocks.ui.theme.XPGold
@@ -78,37 +82,59 @@ fun AnalyticsScreen(
         Column(
             modifier = Modifier.fillMaxSize()
         ) {
-            // Gradient Top App Bar matching other screens
+            // Modern gradient header with analytics icon
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(120.dp)
+                    .height(140.dp)
                     .background(
-                        brush = StudyGradients.primaryGradient
+                        brush = StudyGradients.purplePinkGradient
                     )
             ) {
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(horizontal = 16.dp, vertical = 16.dp),
+                        .padding(horizontal = 20.dp, vertical = 24.dp),
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Column(
                         modifier = Modifier.weight(1f)
                     ) {
-                        Text(
-                            text = "Analytics",
-                            style = StudyBlocksTypography.screenTitle.copy(fontSize = 28.sp),
-                            color = androidx.compose.ui.graphics.Color.White,
-                            maxLines = 2
-                        )
-                        Text(
-                            text = "Your learning journey",
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = androidx.compose.ui.graphics.Color.White.copy(alpha = 0.8f),
-                            maxLines = 1
-                        )
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(12.dp)
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .size(48.dp)
+                                    .background(
+                                        androidx.compose.ui.graphics.Color.White.copy(alpha = 0.2f),
+                                        RoundedCornerShape(12.dp)
+                                    ),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(
+                                    Icons.Default.TrendingUp,
+                                    contentDescription = null,
+                                    tint = androidx.compose.ui.graphics.Color.White,
+                                    modifier = Modifier.size(24.dp)
+                                )
+                            }
+                            
+                            Column {
+                                Text(
+                                    text = "Analytics",
+                                    style = StudyBlocksTypography.welcomeTitle.copy(fontSize = 28.sp),
+                                    color = androidx.compose.ui.graphics.Color.White
+                                )
+                                Text(
+                                    text = "Your learning insights",
+                                    style = StudyBlocksTypography.cardSubtitle,
+                                    color = androidx.compose.ui.graphics.Color.White.copy(alpha = 0.9f)
+                                )
+                            }
+                        }
                     }
                 }
             }
@@ -126,47 +152,33 @@ fun AnalyticsScreen(
                     verticalArrangement = Arrangement.spacedBy(20.dp),
                     contentPadding = PaddingValues(bottom = 100.dp)
                 ) {
-                    // Global XP Summary with integrated stats
+                    // Modern metric cards overview
                     item {
-                        ModernGlobalXPCard(globalStats, studyOverview)
+                        ModernMetricsOverview(globalStats, studyOverview, studyStreak)
                     }
 
-                    // Weekly Completion Chart
+                    // XP Progress with glassmorphic design
                     item {
-                        WeeklyCompletionChart(
+                        ModernXPCard(globalStats)
+                    }
+
+                    // Analytics grid with modern chart cards
+                    item {
+                        ModernAnalyticsGrid(
                             weeklyData = weeklyCompletionData,
-                            modifier = Modifier.fillMaxWidth()
+                            productiveHours = productiveHours,
+                            subjectAnalytics = subjectAnalytics
                         )
                     }
 
-                    // Productivity Heatmap
+                    // Subject performance with modern cards
                     item {
-                        ProductivityHeatmap(
-                            hourlyData = productiveHours,
-                            modifier = Modifier.fillMaxWidth()
-                        )
+                        ModernSubjectPerformance(subjectAnalytics)
                     }
 
-                    // Subject Distribution Chart
+                    // Achievement and predictions
                     item {
-                        val subjectData = subjectAnalytics.map { subject ->
-                            subject.name to subject.totalMinutesStudied
-                        }
-                        SubjectDistributionChart(
-                            subjectData = subjectData,
-                            modifier = Modifier.fillMaxWidth()
-                        )
-                    }
-
-                    // Study Streak
-                    item {
-                        StudyStreakCard(studyStreak)
-                    }
-
-                    
-                    // Level Predictions
-                    item {
-                        LevelPredictionsCard(levelPredictions)
+                        ModernAchievementsCard(levelPredictions, studyStreak)
                     }
                 }
             }
@@ -629,125 +641,339 @@ private fun StatItem(label: String, value: String) {
 // Removed period functions - analytics are now all-time focused
 
 @Composable
-private fun ModernGlobalXPCard(globalStats: GlobalStats, studyOverview: StudyOverview) {
+private fun ModernMetricsOverview(globalStats: GlobalStats, studyOverview: StudyOverview, studyStreak: StudyStreak) {
+    Column(
+        verticalArrangement = Arrangement.spacedBy(12.dp)
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            ModernMetricCard(
+                value = "${studyOverview.totalHours}h",
+                label = "Study Time",
+                trend = "This week",
+                icon = {
+                    Icon(
+                        Icons.Default.Timer,
+                        contentDescription = null,
+                        tint = androidx.compose.ui.graphics.Color.White
+                    )
+                },
+                modifier = Modifier.weight(1f)
+            )
+            
+            ModernMetricCard(
+                value = "Level ${globalStats.globalLevel}",
+                label = "Global Level",
+                trend = "${globalStats.globalXP} XP",
+                icon = {
+                    Icon(
+                        Icons.Default.Star,
+                        contentDescription = null,
+                        tint = androidx.compose.ui.graphics.Color.White
+                    )
+                },
+                modifier = Modifier.weight(1f)
+            )
+        }
+        
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            ModernMetricCard(
+                value = "${studyStreak.currentStreak}",
+                label = "Day Streak",
+                trend = "Record: ${studyStreak.longestStreak}",
+                icon = {
+                    Icon(
+                        Icons.Default.LocalFireDepartment,
+                        contentDescription = null,
+                        tint = androidx.compose.ui.graphics.Color.White
+                    )
+                },
+                modifier = Modifier.weight(1f)
+            )
+            
+            ModernMetricCard(
+                value = "${studyOverview.subjects}",
+                label = "Subjects",
+                trend = "Active learning",
+                icon = {
+                    Icon(
+                        Icons.Default.MenuBook,
+                        contentDescription = null,
+                        tint = androidx.compose.ui.graphics.Color.White
+                    )
+                },
+                modifier = Modifier.weight(1f)
+            )
+        }
+    }
+}
+
+@Composable
+private fun ModernXPCard(globalStats: GlobalStats) {
     val globalXP = globalStats.globalXP.toLong()
     val globalLevel = globalStats.globalLevel
-    val totalHours = studyOverview.totalHours
-    val subjectCount = studyOverview.subjects
-    // Calculate XP for next level based on the exponential formula
     val xpForNextLevel = (200 * ((globalLevel * 1.8).pow(1.3))).toLong()
+    val progress = if (xpForNextLevel > 0) globalXP.toFloat() / xpForNextLevel.toFloat() else 0f
     
-    ModernCard(
+    ProgressRingCard(
+        title = "Global Progress",
+        progress = progress.coerceIn(0f, 1f),
+        progressText = "Level $globalLevel",
+        subtitle = "${globalXP}/${xpForNextLevel} XP",
         modifier = Modifier.fillMaxWidth(),
-        useGradient = true,
-        gradientBrush = StudyGradients.xpGradient,
-        cornerRadius = 24.dp,
-        elevation = 12.dp
+        ringColor = MaterialTheme.colorScheme.primary,
+        ringSize = 100.dp,
+        isFullWidth = true
+    )
+}
+
+@Composable
+private fun ModernAnalyticsGrid(
+    weeklyData: List<Triple<String, Int, Int>>,
+    productiveHours: Map<Int, Double>,
+    subjectAnalytics: List<SubjectAnalyticsData>
+) {
+    Column(
+        verticalArrangement = Arrangement.spacedBy(16.dp)
+    ) {
+        Text(
+            text = "Analytics",
+            style = StudyBlocksTypography.cardTitle,
+            color = MaterialTheme.colorScheme.onSurface,
+            modifier = Modifier.padding(horizontal = 4.dp)
+        )
+        
+        // Charts in modern cards
+        GlassMorphicCard(
+            cornerRadius = 20.dp,
+            elevation = 8.dp
+        ) {
+            Column {
+                Text(
+                    text = "Weekly Activity",
+                    style = StudyBlocksTypography.cardSubtitle,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+                Spacer(modifier = Modifier.height(16.dp))
+                WeeklyCompletionChart(
+                    weeklyData = weeklyData,
+                    modifier = Modifier.fillMaxWidth()
+                )
+            }
+        }
+        
+        GlassMorphicCard(
+            cornerRadius = 20.dp,
+            elevation = 8.dp
+        ) {
+            Column {
+                Text(
+                    text = "Productivity Hours",
+                    style = StudyBlocksTypography.cardSubtitle,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+                Spacer(modifier = Modifier.height(16.dp))
+                ProductivityHeatmap(
+                    hourlyData = productiveHours,
+                    modifier = Modifier.fillMaxWidth()
+                )
+            }
+        }
+        
+        if (subjectAnalytics.isNotEmpty()) {
+            GlassMorphicCard(
+                cornerRadius = 20.dp,
+                elevation = 8.dp
+            ) {
+                Column {
+                    Text(
+                        text = "Subject Distribution",
+                        style = StudyBlocksTypography.cardSubtitle,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                    Spacer(modifier = Modifier.height(16.dp))
+                    val subjectData = subjectAnalytics.map { subject ->
+                        subject.name to subject.totalMinutesStudied
+                    }
+                    SubjectDistributionChart(
+                        subjectData = subjectData,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun ModernSubjectPerformance(subjectAnalytics: List<SubjectAnalyticsData>) {
+    if (subjectAnalytics.isEmpty()) return
+    
+    Column(
+        verticalArrangement = Arrangement.spacedBy(16.dp)
+    ) {
+        Text(
+            text = "Subject Performance",
+            style = StudyBlocksTypography.cardTitle,
+            color = MaterialTheme.colorScheme.onSurface,
+            modifier = Modifier.padding(horizontal = 4.dp)
+        )
+        
+        // Create a grid-like layout with 2 cards per row
+        subjectAnalytics.chunked(2).forEach { rowSubjects ->
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(16.dp)
+            ) {
+                rowSubjects.forEach { subject ->
+                    ModernSubjectCard(
+                        subject = subject,
+                        modifier = Modifier.weight(1f)
+                    )
+                }
+                // Fill remaining space if odd number of items
+                if (rowSubjects.size == 1) {
+                    Spacer(modifier = Modifier.weight(1f))
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun ModernSubjectCard(subject: SubjectAnalyticsData, modifier: Modifier = Modifier) {
+    val confidenceColor = when (subject.confidence) {
+        in 1..3 -> MaterialTheme.colorScheme.error
+        in 4..6 -> MaterialTheme.colorScheme.tertiary
+        in 7..8 -> MaterialTheme.colorScheme.secondary
+        else -> MaterialTheme.colorScheme.primary
+    }
+    
+    GlassMorphicCard(
+        modifier = modifier,
+        backgroundColor = confidenceColor.copy(alpha = 0.1f),
+        cornerRadius = 16.dp
     ) {
         Column(
-            horizontalAlignment = Alignment.CenterHorizontally
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            // XP Icon and Level
+            Text(
+                text = subject.icon,
+                style = MaterialTheme.typography.headlineMedium
+            )
+            
+            Text(
+                text = subject.name,
+                style = StudyBlocksTypography.cardTitle,
+                color = MaterialTheme.colorScheme.onSurface,
+                maxLines = 1
+            )
+            
             Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(12.dp)
+                horizontalArrangement = Arrangement.SpaceEvenly,
+                modifier = Modifier.fillMaxWidth()
             ) {
-                Box(
-                    modifier = Modifier
-                        .size(64.dp)
-                        .background(
-                            androidx.compose.ui.graphics.Color.White.copy(alpha = 0.2f),
-                            CircleShape
-                        ),
-                    contentAlignment = Alignment.Center
-                ) {
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
                     Text(
-                        text = "⭐",
-                        style = MaterialTheme.typography.headlineLarge,
-                        color = androidx.compose.ui.graphics.Color.White
+                        text = "${subject.level}",
+                        style = StudyBlocksTypography.statisticsNumber,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                    Text(
+                        text = "Level",
+                        style = StudyBlocksTypography.microLabel,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
                 
-                Column(
-                    horizontalAlignment = Alignment.CenterHorizontally
-                ) {
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
                     Text(
-                        text = "Level $globalLevel",
-                        style = StudyBlocksTypography.levelDisplay,
-                        color = androidx.compose.ui.graphics.Color.White
+                        text = "${subject.confidence}",
+                        style = StudyBlocksTypography.statisticsNumber,
+                        color = confidenceColor
                     )
                     Text(
-                        text = "Global Rank",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = androidx.compose.ui.graphics.Color.White.copy(alpha = 0.8f)
+                        text = "Confidence",
+                        style = StudyBlocksTypography.microLabel,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
             }
             
-            Spacer(modifier = Modifier.height(16.dp))
-            
-            // XP Progress
-            XPProgressBar(
-                currentXP = globalXP,
-                targetXP = xpForNextLevel,
-                level = globalLevel,
-                showXPNumbers = true,
-                animationDuration = 2000
+            Text(
+                text = "${subject.totalMinutesStudied / 60}h ${subject.totalMinutesStudied % 60}m",
+                style = StudyBlocksTypography.cardSubtitle,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
             )
-            
-            Spacer(modifier = Modifier.height(16.dp))
-            
-            // Study Statistics Row
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceEvenly
+        }
+    }
+}
+
+@Composable
+private fun ModernAchievementsCard(levelPredictions: Map<String, LevelPrediction>, studyStreak: StudyStreak) {
+    Column(
+        verticalArrangement = Arrangement.spacedBy(16.dp)
+    ) {
+        Text(
+            text = "Achievements & Goals",
+            style = StudyBlocksTypography.cardTitle,
+            color = MaterialTheme.colorScheme.onSurface,
+            modifier = Modifier.padding(horizontal = 4.dp)
+        )
+        
+        if (levelPredictions.isNotEmpty()) {
+            GlassMorphicCard(
+                cornerRadius = 20.dp,
+                backgroundColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f)
             ) {
                 Column(
-                    horizontalAlignment = Alignment.CenterHorizontally
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Text(
+                            text = "🎯",
+                            style = MaterialTheme.typography.headlineSmall
+                        )
+                        Text(
+                            text = "Level-Up Predictions",
+                            style = StudyBlocksTypography.cardTitle,
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                    }
+                    
                     Text(
-                        text = "${totalHours}h",
-                        style = MaterialTheme.typography.headlineSmall,
-                        color = androidx.compose.ui.graphics.Color.White,
-                        fontWeight = FontWeight.Bold
+                        text = "Complete your schedule to reach these levels:",
+                        style = StudyBlocksTypography.cardSubtitle,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
-                    Text(
-                        text = "Study Time",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = androidx.compose.ui.graphics.Color.White.copy(alpha = 0.8f)
-                    )
-                }
-                
-                Column(
-                    horizontalAlignment = Alignment.CenterHorizontally
-                ) {
-                    Text(
-                        text = "$subjectCount",
-                        style = MaterialTheme.typography.headlineSmall,
-                        color = androidx.compose.ui.graphics.Color.White,
-                        fontWeight = FontWeight.Bold
-                    )
-                    Text(
-                        text = "Subjects",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = androidx.compose.ui.graphics.Color.White.copy(alpha = 0.8f)
-                    )
-                }
-                
-                Column(
-                    horizontalAlignment = Alignment.CenterHorizontally
-                ) {
-                    Text(
-                        text = "${globalStats.streakDays}",
-                        style = MaterialTheme.typography.headlineSmall,
-                        color = androidx.compose.ui.graphics.Color.White,
-                        fontWeight = FontWeight.Bold
-                    )
-                    Text(
-                        text = "Day Streak",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = androidx.compose.ui.graphics.Color.White.copy(alpha = 0.8f)
-                    )
+                    
+                    levelPredictions.values.take(2).forEach { prediction ->
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = prediction.subjectName,
+                                style = StudyBlocksTypography.cardSubtitle,
+                                color = MaterialTheme.colorScheme.onSurface
+                            )
+                            Text(
+                                text = "Lv ${prediction.currentLevel} → ${String.format("%.1f", prediction.predictedLevel)}",
+                                style = StudyBlocksTypography.microLabel,
+                                color = MaterialTheme.colorScheme.primary
+                            )
+                        }
+                    }
                 }
             }
         }

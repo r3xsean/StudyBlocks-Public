@@ -65,11 +65,11 @@ class NotificationService @Inject constructor(
         workManager.cancelAllWorkByTag(WORK_TAG_DAILY_SUMMARY)
         
         if (enabled) {
-            val delayToMidnight = calculateDelayToTime(0, 0)
-            android.util.Log.d("NotificationService", "Daily summary scheduled with delay: ${delayToMidnight}ms (${delayToMidnight / (1000 * 60 * 60)} hours)")
+            val delayTo1159PM = calculateDelayToTime(23, 59)
+            android.util.Log.d("NotificationService", "Daily summary scheduled with delay: ${delayTo1159PM}ms (${delayTo1159PM / (1000 * 60 * 60)} hours)")
             
             val summaryWork = PeriodicWorkRequestBuilder<DailySummaryWorker>(24, TimeUnit.HOURS)
-                .setInitialDelay(delayToMidnight, TimeUnit.MILLISECONDS) // Midnight
+                .setInitialDelay(delayTo1159PM, TimeUnit.MILLISECONDS) // 11:59 PM
                 .setInputData(
                     Data.Builder()
                         .putString("notification_type", "daily_summary")

@@ -1,5 +1,8 @@
 package com.example.studyblocks.ui.screens.auth
 
+// Firebase Auth disabled for open source version - this entire file is commented out
+/*
+
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
@@ -293,4 +296,4 @@ fun SignUpScreen(
             }
         }
     }
-}
+}*/

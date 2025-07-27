@@ -9,8 +9,8 @@ import com.example.studyblocks.data.local.dao.SchedulePreferencesDao
 import com.example.studyblocks.data.model.*
 import com.example.studyblocks.scheduling.StudyScheduler
 import com.example.studyblocks.data.model.XPManager
-import com.example.studyblocks.sync.FirebaseSyncRepository
-import com.example.studyblocks.sync.SyncResult
+// import com.example.studyblocks.sync.FirebaseSyncRepository // Disabled for open source version
+// import com.example.studyblocks.sync.SyncResult // Defined locally instead
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.combine
@@ -25,6 +25,12 @@ import javax.inject.Inject
 import javax.inject.Singleton
 import kotlin.math.pow
 
+// Define SyncResult locally since Firebase sync is disabled
+sealed class SyncResult {
+    object Success : SyncResult()
+    data class Error(val message: String) : SyncResult()
+}
+
 @Singleton
 class StudyRepository @Inject constructor(
     private val userDao: UserDao,
@@ -33,7 +39,7 @@ class StudyRepository @Inject constructor(
     private val studySessionDao: StudySessionDao,
     private val schedulePreferencesDao: SchedulePreferencesDao,
     private val studyScheduler: StudyScheduler,
-    private val firebaseSyncRepository: FirebaseSyncRepository,
+    // private val firebaseSyncRepository: FirebaseSyncRepository, // Disabled for open source version
     private val xpManager: XPManager
 ) {
     
@@ -65,6 +71,11 @@ class StudyRepository @Inject constructor(
     fun getAllSubjects(userId: String): Flow<List<Subject>> = subjectDao.getAllSubjects(userId)
     suspend fun getSubjectById(id: String): Subject? = subjectDao.getSubjectById(id)
     suspend fun insertSubject(subject: Subject) = subjectDao.insertSubject(subject)
+    
+    suspend fun insertSubjects(subjects: List<Subject>) {
+        subjectDao.insertSubjects(subjects)
+    }
+    
     suspend fun updateSubject(subject: Subject) = subjectDao.updateSubject(subject)
     suspend fun deleteSubject(subject: Subject) {
         // Delete associated blocks first
@@ -351,7 +362,7 @@ class StudyRepository @Inject constructor(
     
     suspend fun deleteAllDataForUser(userId: String) {
         // Delete from Firebase first
-        firebaseSyncRepository.deleteUserDataFromFirestore(userId)
+        // firebaseSyncRepository.deleteUserDataFromFirestore(userId) // Disabled for open source version
         
         // Delete all user-related data locally
         studySessionDao.deleteAllSessionsForUser(userId)
@@ -362,11 +373,13 @@ class StudyRepository @Inject constructor(
     
     // Sync operations
     suspend fun syncUserData(userId: String): SyncResult {
-        return firebaseSyncRepository.syncUserData(userId)
+        // return firebaseSyncRepository.syncUserData(userId) // Disabled for open source version
+        return SyncResult.Success // Return success for offline-only mode
     }
     
     suspend fun uploadDataToCloud(userId: String): SyncResult {
-        return firebaseSyncRepository.syncUserData(userId)
+        // return firebaseSyncRepository.syncUserData(userId) // Disabled for open source version
+        return SyncResult.Success // Return success for offline-only mode
     }
 
     // Schedule Analytics Extensions

@@ -1,5 +1,9 @@
 package com.example.studyblocks.auth
 
+// Firebase Auth disabled for open source version
+// Uncomment and add firebase dependencies to build.gradle if you want to use Firebase Auth
+
+/*
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.studyblocks.data.local.dao.UserDao
@@ -236,3 +240,4 @@ sealed class AuthState {
     data class Error(val message: String) : AuthState()
     object PasswordResetSent : AuthState()
 }
+*/

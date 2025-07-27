@@ -2,22 +2,24 @@ package com.example.studyblocks.ui.screens.profile
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.example.studyblocks.auth.AuthRepository
+// import com.example.studyblocks.auth.AuthRepository // Disabled for open source version
 import com.example.studyblocks.data.model.AppTheme
 import com.example.studyblocks.data.model.User
 import com.example.studyblocks.data.model.UserPreferences
 import com.example.studyblocks.repository.StudyRepository
-import com.example.studyblocks.sync.SyncResult
+import com.example.studyblocks.repository.SyncResult
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
 import javax.inject.Inject
 
+@OptIn(ExperimentalCoroutinesApi::class)
 @HiltViewModel
 class ProfileViewModel @Inject constructor(
-    private val authRepository: AuthRepository,
+    // private val authRepository: AuthRepository, // Disabled for open source version
     private val studyRepository: StudyRepository
 ) : ViewModel() {
     
@@ -39,9 +41,46 @@ class ProfileViewModel @Inject constructor(
     private val _profileStats = MutableStateFlow(ProfileStats())
     val profileStats = _profileStats.asStateFlow()
     
+    // Check if onboarding is needed - true if no user exists or user hasn't completed onboarding or has no subjects
+    val needsOnboarding: StateFlow<Boolean> = _currentUser.flatMapLatest { user ->
+        if (user == null || !user.hasCompletedOnboarding) {
+            flowOf(true)
+        } else {
+            // Check if user has any subjects (indicates successful onboarding completion)
+            studyRepository.getAllSubjects(user.id).map { subjects ->
+                subjects.isEmpty()
+            }
+        }
+    }.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5000),
+        initialValue = true // Default to needing onboarding
+    )
+    
     init {
         loadCurrentUser()
         loadUserStats()
+        createDefaultUserIfNeeded()
+    }
+    
+    private fun createDefaultUserIfNeeded() {
+        viewModelScope.launch {
+            val currentUser = studyRepository.getCurrentUser()
+            if (currentUser == null) {
+                // Create a default offline user for the open source version
+                val defaultUser = User(
+                    id = "offline_user_001",
+                    email = "offline@local.user",
+                    displayName = "Local User",
+                    hasCompletedOnboarding = false,
+                    createdAt = LocalDateTime.now(),
+                    lastSyncAt = LocalDateTime.now(),
+                    globalXp = 0,
+                    globalLevel = 1
+                )
+                studyRepository.insertUser(defaultUser)
+            }
+        }
     }
     
     private fun loadCurrentUser() {
@@ -148,7 +187,7 @@ class ProfileViewModel @Inject constructor(
         viewModelScope.launch {
             _isLoading.value = true
             try {
-                authRepository.signOut()
+                // authRepository.signOut() // Disabled for open source version
                 _showSignOutDialog.value = false
             } catch (e: Exception) {
                 // Handle error
@@ -166,7 +205,7 @@ class ProfileViewModel @Inject constructor(
                     // Delete user data
                     studyRepository.deleteAllDataForUser(user.id)
                     // Sign out
-                    authRepository.signOut()
+                    // authRepository.signOut() // Disabled for open source version
                 }
                 _showDeleteAccountDialog.value = false
             } catch (e: Exception) {

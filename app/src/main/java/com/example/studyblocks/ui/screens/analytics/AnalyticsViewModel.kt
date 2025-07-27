@@ -201,8 +201,9 @@ class AnalyticsViewModel @Inject constructor(
             val blocksByDayOfWeek = blocks.groupBy { it.scheduledDate.dayOfWeek.value }
             
             // Calculate completion data for each day of the week
+            // Ensure we always return all 7 days in correct order
             listOf(1, 2, 3, 4, 5, 6, 7).map { dayOfWeek ->
-                val dayAbbr = dayAbbreviations[dayOfWeek] ?: "Sun"
+                val dayAbbr = dayAbbreviations[dayOfWeek] ?: "Unknown"
                 val blocksForDay = blocksByDayOfWeek[dayOfWeek] ?: emptyList()
                 
                 val totalBlocks = blocksForDay.size

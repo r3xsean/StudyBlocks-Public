@@ -40,9 +40,15 @@ import com.example.studyblocks.ui.components.ModernCard
 import com.example.studyblocks.ui.components.GradientButton
 import com.example.studyblocks.ui.components.ConfidenceRatingIndicator
 import com.example.studyblocks.ui.components.XPProgressBar
+import com.example.studyblocks.ui.components.GlassMorphicCard
+import com.example.studyblocks.ui.components.ModernMetricCard
+import com.example.studyblocks.ui.components.PillSegmentedControl
 import com.example.studyblocks.ui.theme.StudyBlocksTypography
 import com.example.studyblocks.ui.theme.StudyGradients
 import com.example.studyblocks.ui.theme.ConfidenceColors
+import com.example.studyblocks.ui.theme.ConfidenceGradients
+import com.example.studyblocks.ui.theme.ModernPurple
+import com.example.studyblocks.ui.theme.ModernTeal
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 import java.time.temporal.ChronoUnit
@@ -63,6 +69,7 @@ fun SubjectsScreen(
     
     var showSortMenu by remember { mutableStateOf(false) }
     var showScheduleDialog by remember { mutableStateOf(false) }
+    var viewMode by remember { mutableStateOf(0) } // 0 = grid, 1 = list
     
     // Handle schedule result
     LaunchedEffect(scheduleResult) {
@@ -79,87 +86,129 @@ fun SubjectsScreen(
         Column(
             modifier = Modifier.fillMaxSize()
         ) {
-            // Modern Gradient Top App Bar
+            // Modern Header with glassmorphic design
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
+                    .height(140.dp)
                     .background(
-                        brush = StudyGradients.primaryGradient
+                        brush = StudyGradients.purpleTealGradient
                     )
             ) {
-                Row(
+                Column(
                     modifier = Modifier
-                        .fillMaxWidth()
+                        .fillMaxSize()
                         .padding(horizontal = 20.dp, vertical = 20.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
+                    verticalArrangement = Arrangement.SpaceBetween
                 ) {
-                    Column {
-                        Text(
-                            text = "My Subjects",
-                            style = StudyBlocksTypography.screenTitle,
-                            color = Color.White
-                        )
-                        Text(
-                            text = "${subjects.size} subjects · Build your expertise",
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = Color.White.copy(alpha = 0.8f)
-                        )
-                    }
-                    
-                    // Sort Menu with glass effect
-                    Box {
-                        Box(
-                            modifier = Modifier
-                                .size(48.dp)
-                                .background(
-                                    Color.White.copy(alpha = 0.2f),
-                                    CircleShape
-                                )
-                                .clickable { showSortMenu = true },
-                            contentAlignment = Alignment.Center
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.Top
+                    ) {
+                        Column(
+                            modifier = Modifier.weight(1f)
                         ) {
-                            Icon(
-                                Icons.AutoMirrored.Filled.Sort,
-                                contentDescription = "Sort",
-                                modifier = Modifier.size(24.dp),
-                                tint = Color.White
+                            Text(
+                                text = "My Subjects",
+                                style = StudyBlocksTypography.welcomeTitle,
+                                color = Color.White
+                            )
+                            Text(
+                                text = "${subjects.size} subjects to master",
+                                style = StudyBlocksTypography.cardSubtitle,
+                                color = Color.White.copy(alpha = 0.9f)
                             )
                         }
                         
-                        DropdownMenu(
-                            expanded = showSortMenu,
-                            onDismissRequest = { showSortMenu = false },
-                            modifier = Modifier.background(
-                                MaterialTheme.colorScheme.surface,
-                                RoundedCornerShape(12.dp)
-                            )
-                        ) {
-                            SortBy.values().forEach { sortOption ->
-                                DropdownMenuItem(
-                                    text = { 
-                                        Text(
-                                            sortOption.displayName,
-                                            style = MaterialTheme.typography.bodyMedium,
-                                            fontWeight = if (sortBy == sortOption) FontWeight.SemiBold else FontWeight.Normal
-                                        ) 
-                                    },
-                                    onClick = {
-                                        viewModel.setSortBy(sortOption)
-                                        showSortMenu = false
-                                    },
-                                    leadingIcon = {
-                                        if (sortBy == sortOption) {
-                                            Icon(
-                                                Icons.Default.Check,
-                                                contentDescription = null,
-                                                tint = MaterialTheme.colorScheme.primary,
-                                                modifier = Modifier.size(20.dp)
-                                            )
-                                        }
-                                    }
+                        // Action button with improved glassmorphic design
+                        Box {
+                            Box(
+                                modifier = Modifier
+                                    .size(48.dp)
+                                    .background(
+                                        Color.White.copy(alpha = 0.25f),
+                                        CircleShape
+                                    )
+                                    .clickable { showSortMenu = true },
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(
+                                    Icons.AutoMirrored.Filled.Sort,
+                                    contentDescription = "Sort",
+                                    modifier = Modifier.size(22.dp),
+                                    tint = Color.White
                                 )
                             }
+                            
+                            DropdownMenu(
+                                expanded = showSortMenu,
+                                onDismissRequest = { showSortMenu = false },
+                                modifier = Modifier.background(
+                                    MaterialTheme.colorScheme.surface,
+                                    RoundedCornerShape(16.dp)
+                                )
+                            ) {
+                                SortBy.values().forEach { sortOption ->
+                                    DropdownMenuItem(
+                                        text = { 
+                                            Text(
+                                                sortOption.displayName,
+                                                style = StudyBlocksTypography.cardTitle,
+                                                fontWeight = if (sortBy == sortOption) FontWeight.Bold else FontWeight.Normal
+                                            ) 
+                                        },
+                                        onClick = {
+                                            viewModel.setSortBy(sortOption)
+                                            showSortMenu = false
+                                        },
+                                        leadingIcon = {
+                                            if (sortBy == sortOption) {
+                                                Icon(
+                                                    Icons.Default.Check,
+                                                    contentDescription = null,
+                                                    tint = ModernTeal,
+                                                    modifier = Modifier.size(20.dp)
+                                                )
+                                            }
+                                        }
+                                    )
+                                }
+                            }
+                        }
+                    }
+                    
+                    // View mode selector
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.Bottom
+                    ) {
+                        PillSegmentedControl(
+                            selectedIndex = viewMode,
+                            options = listOf("Grid", "List"),
+                            onSelectionChange = { viewMode = it },
+                            modifier = Modifier.width(140.dp),
+                            backgroundColor = Color.White.copy(alpha = 0.2f),
+                            selectedColor = Color.White,
+                            unselectedColor = Color.White.copy(alpha = 0.8f)
+                        )
+                        
+                        // Total XP display
+                        val totalXP = subjects.sumOf { it.xp }
+                        Column(
+                            horizontalAlignment = Alignment.End
+                        ) {
+                            Text(
+                                text = "${totalXP.toInt()}",
+                                style = StudyBlocksTypography.levelDisplayLarge,
+                                color = Color.White
+                            )
+                            Text(
+                                text = "Total XP",
+                                style = StudyBlocksTypography.microLabel,
+                                color = Color.White.copy(alpha = 0.8f)
+                            )
                         }
                     }
                 }
@@ -170,21 +219,14 @@ fun SubjectsScreen(
                     .fillMaxSize()
                     .padding(horizontal = 16.dp)
             ) {
-                Spacer(modifier = Modifier.height(16.dp))
+                Spacer(modifier = Modifier.height(20.dp))
                 
-                // Compact Schedule Generation Section
+                // Schedule Generation Section
                 if (subjects.isNotEmpty()) {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .background(
-                                brush = StudyGradients.successGradient,
-                                shape = RoundedCornerShape(16.dp)
-                            )
-                            .padding(16.dp)
-                            .clickable(enabled = !isGeneratingSchedule) { 
-                                navController.navigate(Screen.ScheduleSettings.route) 
-                            }
+                    GlassMorphicCard(
+                        onClick = { navController.navigate(Screen.ScheduleSettings.route) },
+                        modifier = Modifier.fillMaxWidth(),
+                        cornerRadius = 16.dp
                     ) {
                         Row(
                             modifier = Modifier.fillMaxWidth(),
@@ -196,6 +238,23 @@ fun SubjectsScreen(
                                 verticalAlignment = Alignment.CenterVertically,
                                 horizontalArrangement = Arrangement.spacedBy(12.dp)
                             ) {
+                                Box(
+                                    modifier = Modifier
+                                        .size(40.dp)
+                                        .background(
+                                            StudyGradients.purplePinkGradient,
+                                            CircleShape
+                                        ),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Icon(
+                                        Icons.Default.Schedule,
+                                        contentDescription = null,
+                                        tint = Color.White,
+                                        modifier = Modifier.size(20.dp)
+                                    )
+                                }
+                                
                                 Text(
                                     text = "📅",
                                     style = MaterialTheme.typography.headlineSmall
@@ -204,12 +263,13 @@ fun SubjectsScreen(
                                     Text(
                                         text = "Generate Schedule",
                                         style = StudyBlocksTypography.subjectTitle,
-                                        color = Color.White
+                                        color = MaterialTheme.colorScheme.onSurface,
+                                        fontWeight = FontWeight.Bold
                                     )
                                     Text(
                                         text = "AI-powered study plan",
                                         style = MaterialTheme.typography.bodySmall,
-                                        color = Color.White.copy(alpha = 0.8f)
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
                                     )
                                 }
                             }
@@ -230,13 +290,13 @@ fun SubjectsScreen(
                                         Icons.Default.Refresh,
                                         contentDescription = null,
                                         modifier = Modifier.size(18.dp),
-                                        tint = Color.White
+                                        tint = MaterialTheme.colorScheme.onSurface
                                     )
                                 }
                                 Text(
                                     if (isGeneratingSchedule) "Generating..." else "Generate",
                                     style = MaterialTheme.typography.labelMedium,
-                                    color = Color.White,
+                                    color = MaterialTheme.colorScheme.onSurface,
                                     fontWeight = FontWeight.SemiBold
                                 )
                             }
@@ -246,21 +306,39 @@ fun SubjectsScreen(
                     Spacer(modifier = Modifier.height(16.dp))
                 }
                 
-                // Subjects List with enhanced spacing
+                // Modern Subjects List with grid/list toggle
                 if (subjects.isEmpty()) {
-                    EmptySubjectsState(
+                    ModernEmptySubjectsState(
                         onAddSubject = { viewModel.showAddSubjectDialog() }
                     )
                 } else {
-                    LazyColumn(
-                        verticalArrangement = Arrangement.spacedBy(16.dp),
-                        contentPadding = PaddingValues(bottom = 100.dp)
-                    ) {
-                        items(subjects) { subject ->
-                            EnhancedSubjectCard(
-                                subject = subject,
-                                onClick = { navController.navigate("subject_detail/${subject.id}") }
-                            )
+                    if (viewMode == 0) {
+                        // Grid View
+                        LazyVerticalGrid(
+                            columns = GridCells.Fixed(2),
+                            verticalArrangement = Arrangement.spacedBy(12.dp),
+                            horizontalArrangement = Arrangement.spacedBy(12.dp),
+                            contentPadding = PaddingValues(bottom = 100.dp)
+                        ) {
+                            items(subjects) { subject ->
+                                ModernSubjectGridCard(
+                                    subject = subject,
+                                    onClick = { navController.navigate("subject_detail/${subject.id}") }
+                                )
+                            }
+                        }
+                    } else {
+                        // List View
+                        LazyColumn(
+                            verticalArrangement = Arrangement.spacedBy(12.dp),
+                            contentPadding = PaddingValues(bottom = 100.dp)
+                        ) {
+                            items(subjects) { subject ->
+                                ModernSubjectListCard(
+                                    subject = subject,
+                                    onClick = { navController.navigate("subject_detail/${subject.id}") }
+                                )
+                            }
                         }
                     }
                 }
@@ -1061,6 +1139,273 @@ fun EnhancedSubjectCard(
                         )
                     }
                 }
+            }
+        }
+    }
+}
+
+// New modern component functions
+
+@Composable
+fun ModernEmptySubjectsState(
+    onAddSubject: () -> Unit
+) {
+    GlassMorphicCard(
+        modifier = Modifier.fillMaxWidth(),
+        cornerRadius = 20.dp
+    ) {
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(20.dp)
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(80.dp)
+                    .background(
+                        StudyGradients.glassPurpleGradient,
+                        CircleShape
+                    ),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    Icons.Default.School,
+                    contentDescription = null,
+                    modifier = Modifier.size(40.dp),
+                    tint = ModernPurple
+                )
+            }
+            
+            Text(
+                text = "No subjects yet",
+                style = StudyBlocksTypography.welcomeTitle,
+                color = MaterialTheme.colorScheme.onSurface
+            )
+            
+            Text(
+                text = "Add your first subject to start your study journey",
+                style = StudyBlocksTypography.cardSubtitle,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            
+            Button(
+                onClick = onAddSubject,
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = ModernPurple,
+                    contentColor = Color.White
+                ),
+                shape = RoundedCornerShape(16.dp)
+            ) {
+                Icon(
+                    Icons.Default.Add,
+                    contentDescription = null,
+                    modifier = Modifier.size(18.dp)
+                )
+                Spacer(modifier = Modifier.width(8.dp))
+                Text(
+                    text = "Add Subject",
+                    style = StudyBlocksTypography.pillButtonText
+                )
+            }
+        }
+    }
+}
+
+@Composable
+fun ModernSubjectGridCard(
+    subject: Subject,
+    onClick: () -> Unit
+) {
+    val confidenceGradient = if (subject.confidence <= 10) {
+        ConfidenceGradients[subject.confidence - 1]
+    } else {
+        StudyGradients.glassPrimaryGradient
+    }
+    
+    GlassMorphicCard(
+        onClick = onClick,
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(140.dp),
+        cornerRadius = 16.dp,
+        backgroundColor = MaterialTheme.colorScheme.surface
+    ) {
+        Column(
+            modifier = Modifier.fillMaxSize(),
+            verticalArrangement = Arrangement.SpaceBetween
+        ) {
+            // Header with icon and confidence
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.Top
+            ) {
+                Text(
+                    text = subject.icon,
+                    style = MaterialTheme.typography.headlineLarge.copy(fontSize = 28.sp)
+                )
+                
+                Box(
+                    modifier = Modifier
+                        .size(24.dp)
+                        .background(
+                            confidenceGradient,
+                            CircleShape
+                        ),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = "${subject.confidence}",
+                        style = StudyBlocksTypography.achievementBadge,
+                        color = Color.White
+                    )
+                }
+            }
+            
+            // Subject name
+            Text(
+                text = subject.name,
+                style = StudyBlocksTypography.cardTitle,
+                color = MaterialTheme.colorScheme.onSurface,
+                maxLines = 2
+            )
+            
+            // Level and XP
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.Bottom
+            ) {
+                Column {
+                    Text(
+                        text = "Level ${subject.level}",
+                        style = StudyBlocksTypography.microLabel,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Text(
+                        text = "${subject.xp.toInt()} XP",
+                        style = StudyBlocksTypography.statisticsLabel,
+                        color = ModernTeal
+                    )
+                }
+                
+                Icon(
+                    Icons.Default.ArrowForward,
+                    contentDescription = null,
+                    modifier = Modifier.size(16.dp),
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+        }
+    }
+}
+
+@Composable
+fun ModernSubjectListCard(
+    subject: Subject,
+    onClick: () -> Unit
+) {
+    val confidenceGradient = if (subject.confidence <= 10) {
+        ConfidenceGradients[subject.confidence - 1]
+    } else {
+        StudyGradients.glassPrimaryGradient
+    }
+    
+    GlassMorphicCard(
+        onClick = onClick,
+        modifier = Modifier.fillMaxWidth(),
+        cornerRadius = 16.dp,
+        backgroundColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.95f)
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            // Left section with icon and info
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(16.dp),
+                modifier = Modifier.weight(1f)
+            ) {
+                // Subject icon with gradient background
+                Box(
+                    modifier = Modifier
+                        .size(56.dp)
+                        .background(
+                            confidenceGradient,
+                            CircleShape
+                        ),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = subject.icon,
+                        style = MaterialTheme.typography.headlineMedium
+                    )
+                }
+                
+                // Subject info
+                Column(
+                    modifier = Modifier.weight(1f)
+                ) {
+                    Text(
+                        text = subject.name,
+                        style = StudyBlocksTypography.subjectTitleLarge,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                    
+                    Spacer(modifier = Modifier.height(4.dp))
+                    
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        Text(
+                            text = "Level ${subject.level}",
+                            style = StudyBlocksTypography.microLabel,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        Text(
+                            text = "${subject.blockDurationMinutes}min blocks",
+                            style = StudyBlocksTypography.microLabel,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                    
+                    Spacer(modifier = Modifier.height(4.dp))
+                    
+                    Text(
+                        text = "${subject.xp.toInt()} XP",
+                        style = StudyBlocksTypography.statisticsLabel,
+                        color = ModernTeal
+                    )
+                }
+            }
+            
+            // Right section with confidence and arrow
+            Column(
+                horizontalAlignment = Alignment.End,
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                Box(
+                    modifier = Modifier
+                        .background(
+                            MaterialTheme.colorScheme.surfaceVariant,
+                            RoundedCornerShape(8.dp)
+                        )
+                        .padding(horizontal = 8.dp, vertical = 4.dp)
+                ) {
+                    Text(
+                        text = "${subject.confidence}/10",
+                        style = StudyBlocksTypography.microLabel,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+                
+                Icon(
+                    Icons.Default.ArrowForward,
+                    contentDescription = null,
+                    modifier = Modifier.size(20.dp),
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant
+                )
             }
         }
     }

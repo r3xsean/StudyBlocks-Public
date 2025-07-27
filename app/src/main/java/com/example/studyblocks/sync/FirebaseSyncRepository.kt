@@ -1,5 +1,9 @@
 package com.example.studyblocks.sync
 
+// Firebase Sync disabled for open source version
+// Uncomment and add firebase dependencies to build.gradle if you want to use Firebase Sync
+
+/*
 import com.example.studyblocks.data.local.dao.StudyBlockDao
 import com.example.studyblocks.data.local.dao.StudySessionDao
 import com.example.studyblocks.data.local.dao.SubjectDao
@@ -250,3 +254,4 @@ sealed class SyncResult {
     object Success : SyncResult()
     data class Error(val message: String) : SyncResult()
 }
+*/

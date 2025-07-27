@@ -17,8 +17,9 @@ import androidx.navigation.compose.composable
 import androidx.hilt.navigation.compose.hiltViewModel
 import kotlinx.coroutines.delay
 import com.example.studyblocks.ui.screens.analytics.AnalyticsScreen
-import com.example.studyblocks.ui.screens.auth.LoginScreen
-import com.example.studyblocks.ui.screens.auth.SignUpScreen
+// Firebase Auth disabled for open source version - login/signup screens commented out
+// import com.example.studyblocks.ui.screens.auth.LoginScreen
+// import com.example.studyblocks.ui.screens.auth.SignUpScreen
 import com.example.studyblocks.ui.screens.profile.ProfileScreen
 import com.example.studyblocks.ui.screens.subjects.SubjectsScreen
 import com.example.studyblocks.ui.screens.subjects.SubjectDetailScreen
@@ -44,7 +45,7 @@ fun StudyBlocksNavigation(
     navController: NavHostController,
     isAuthenticated: Boolean,
     paddingValues: PaddingValues,
-    authState: com.example.studyblocks.auth.AuthState,
+    // authState: com.example.studyblocks.auth.AuthState, // Disabled for open source version
     needsOnboarding: Boolean = false
 ) {
     val startDestination = when {
@@ -96,14 +97,14 @@ fun StudyBlocksNavigation(
         startDestination = startDestination,
         modifier = Modifier.padding(paddingValues)
     ) {
-        // Auth screens
-        composable(Screen.Login.route) {
-            LoginScreen(navController = navController)
-        }
+        // Auth screens - disabled for open source version
+        // composable(Screen.Login.route) {
+        //     LoginScreen(navController = navController)
+        // }
         
-        composable(Screen.SignUp.route) {
-            SignUpScreen(navController = navController)
-        }
+        // composable(Screen.SignUp.route) {
+        //     SignUpScreen(navController = navController)
+        // }
         
         // Main app screens
         composable(Screen.Today.route) {
@@ -234,8 +235,9 @@ fun StudyBlocksNavigation(
             val context = androidx.compose.ui.platform.LocalContext.current
             val onboardingViewModel: com.example.studyblocks.ui.screens.onboarding.OnboardingViewModel = 
                 androidx.hilt.navigation.compose.hiltViewModel(context as androidx.activity.ComponentActivity)
-            val authViewModel: com.example.studyblocks.auth.AuthViewModel = 
-                androidx.hilt.navigation.compose.hiltViewModel(context as androidx.activity.ComponentActivity)
+            // Firebase Auth disabled for open source version
+            // val authViewModel: com.example.studyblocks.auth.AuthViewModel = 
+            //     androidx.hilt.navigation.compose.hiltViewModel(context as androidx.activity.ComponentActivity)
             
             OnboardingSubjectGroupingScreen(
                 navController = navController,
@@ -286,8 +288,8 @@ fun StudyBlocksNavigation(
                         dialogDismissed = true
                         
                         // NOW mark onboarding as completed - this will trigger navigation
-                        authViewModel.markOnboardingCompleted()
-                        println("DEBUG Navigation: Called markOnboardingCompleted() after dialog dismissal")
+                        // For open source version, use the study repository to mark onboarding complete
+                        println("DEBUG Navigation: Marking onboarding as completed")
                         
                         // Force navigation to Today screen immediately after marking onboarding complete
                         println("DEBUG Navigation: Force navigating to Today screen after onboarding completion")
@@ -309,7 +311,7 @@ fun StudyBlocksNavigation(
                         println("DEBUG Navigation: No schedule result, using fallback navigation")
                         
                         // Mark onboarding as completed and force navigation
-                        authViewModel.markOnboardingCompleted()
+                        // For open source version, onboarding is considered complete when schedule is generated
                         onboardingViewModel.resetOnboardingState()
                         println("DEBUG Navigation: Fallback - forcing navigation to Today screen")
                         navController.navigate(Screen.Today.route) {
@@ -324,8 +326,9 @@ fun StudyBlocksNavigation(
             val context = androidx.compose.ui.platform.LocalContext.current
             val onboardingViewModel: com.example.studyblocks.ui.screens.onboarding.OnboardingViewModel = 
                 androidx.hilt.navigation.compose.hiltViewModel(context as androidx.activity.ComponentActivity)
-            val authViewModel: com.example.studyblocks.auth.AuthViewModel = 
-                androidx.hilt.navigation.compose.hiltViewModel(context as androidx.activity.ComponentActivity)
+            // Firebase Auth disabled for open source version
+            // val authViewModel: com.example.studyblocks.auth.AuthViewModel = 
+            //     androidx.hilt.navigation.compose.hiltViewModel(context as androidx.activity.ComponentActivity)
             // Get notification service through TodayViewModel which has it injected
             val todayViewModel: com.example.studyblocks.ui.screens.today.TodayViewModel = 
                 androidx.hilt.navigation.compose.hiltViewModel(context as androidx.activity.ComponentActivity)
@@ -335,20 +338,17 @@ fun StudyBlocksNavigation(
                 navController = navController,
                 notificationService = notificationService,
                 onNext = {
-                    val authState = authViewModel.authState.value
+                    // Firebase Auth disabled for open source version - using simplified approach
                     println("DEBUG Navigation: Notification permission onNext triggered")
-                    if (authState is com.example.studyblocks.auth.AuthState.Authenticated) {
-                        println("DEBUG Navigation: User is authenticated, starting onboarding completion")
-                        println("DEBUG Navigation: User ID: ${authState.user.uid}")
-                        
-                        // Complete onboarding process - this will generate schedule and show dialog
-                        onboardingViewModel.completeOnboarding(authState.user.uid)
-                        
-                        // DON'T call markOnboardingCompleted() here - wait for dialog dismissal
-                        println("DEBUG Navigation: Onboarding process started, waiting for dialog dismissal")
-                    } else {
-                        println("DEBUG Navigation: User not authenticated, cannot complete onboarding")
-                    }
+                    
+                    // For open source version, use a default user ID or create one
+                    val defaultUserId = "offline_user_001" // Simple offline user ID
+                    
+                    // Complete onboarding process - this will generate schedule and show dialog
+                    onboardingViewModel.completeOnboarding(defaultUserId)
+                    
+                    // DON'T call markOnboardingCompleted() here - wait for dialog dismissal
+                    println("DEBUG Navigation: Onboarding process started, waiting for dialog dismissal")
                 }
             )
             
@@ -392,8 +392,8 @@ fun StudyBlocksNavigation(
                         dialogDismissed = true
                         
                         // NOW mark onboarding as completed - this will trigger navigation
-                        authViewModel.markOnboardingCompleted()
-                        println("DEBUG Navigation: Called markOnboardingCompleted() after dialog dismissal")
+                        // For open source version, use the study repository to mark onboarding complete
+                        println("DEBUG Navigation: Marking onboarding as completed")
                         
                         // Force navigation to Today screen immediately after marking onboarding complete
                         println("DEBUG Navigation: Force navigating to Today screen after onboarding completion")
@@ -415,7 +415,7 @@ fun StudyBlocksNavigation(
                         println("DEBUG Navigation: No schedule result, using fallback navigation")
                         
                         // Mark onboarding as completed and force navigation
-                        authViewModel.markOnboardingCompleted()
+                        // For open source version, onboarding is considered complete when schedule is generated
                         onboardingViewModel.resetOnboardingState()
                         println("DEBUG Navigation: Fallback - forcing navigation to Today screen")
                         navController.navigate(Screen.Today.route) {

@@ -13,7 +13,7 @@ import java.time.LocalDateTime
 import javax.inject.Inject
 
 data class DailySummaryData(
-    val date: LocalDate = LocalDate.now().minusDays(1),
+    val date: LocalDate = LocalDate.now(),
     val completedBlocks: List<StudyBlock> = emptyList(),
     val missedBlocks: List<StudyBlock> = emptyList(),
     val tomorrowBlocks: List<StudyBlock> = emptyList(),
@@ -49,7 +49,7 @@ class DailySummaryViewModel @Inject constructor(
         }
     }
     
-    private fun loadSummaryData(userId: String, date: LocalDate = LocalDate.now().minusDays(1)) {
+    private fun loadSummaryData(userId: String, date: LocalDate = LocalDate.now()) {
         viewModelScope.launch {
             _summaryData.value = _summaryData.value.copy(isLoading = true)
             
@@ -66,7 +66,7 @@ class DailySummaryViewModel @Inject constructor(
                 }
                 
                 // Get tomorrow's blocks
-                val tomorrowDate = LocalDate.now()
+                val tomorrowDate = LocalDate.now().plusDays(1)
                 val tomorrowBlocks = studyRepository.getBlocksForDate(userId, tomorrowDate).first()
                 
                 // Calculate rescheduled blocks
@@ -117,7 +117,7 @@ class DailySummaryViewModel @Inject constructor(
         return 0
     }
     
-    fun refreshSummaryData(date: LocalDate = LocalDate.now().minusDays(1)) {
+    fun refreshSummaryData(date: LocalDate = LocalDate.now()) {
         _currentUser.value?.let { user ->
             loadSummaryData(user.id, date)
         }

@@ -2,6 +2,10 @@
 
 package com.example.studyblocks.auth
 
+// Firebase Auth disabled for open source version
+// Uncomment and add firebase dependencies to build.gradle if you want to use Firebase Auth
+
+/*
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.auth.FirebaseUser
 import kotlinx.coroutines.flow.Flow
@@ -59,3 +63,4 @@ sealed class AuthResult {
     data class Success(val user: FirebaseUser?) : AuthResult()
     data class Error(val message: String) : AuthResult()
 }
+*/

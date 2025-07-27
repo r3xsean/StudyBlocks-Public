@@ -223,9 +223,13 @@ class TodayViewModel @Inject constructor(
             if (user != null && user.hasCompletedOnboarding && !hasShownConfidenceDialog) {
                 // Get current blocks safely
                 try {
-                    val blocks = allStudyBlocks.value
+                    android.util.Log.d("TodayViewModel", "Waiting for updated blocks from database...")
+                    // Wait for the first emission after the database update
+                    val blocks = allStudyBlocks.first()
+                    android.util.Log.d("TodayViewModel", "Got updated blocks: ${blocks.size}")
                     checkForScheduleCompletion(blocks)
                 } catch (e: Exception) {
+                    android.util.Log.e("TodayViewModel", "Error getting updated blocks", e)
                     // Handle error silently
                 }
             }
@@ -250,27 +254,43 @@ class TodayViewModel @Inject constructor(
     }
     
     private fun checkForTodayCompletion(allBlocks: List<StudyBlock>) {
+        android.util.Log.d("TodayViewModel", "checkForTodayCompletion called with ${allBlocks.size} blocks")
+        
         if (isSelectedDateToday()) {
             val today = LocalDate.now()
             val todayBlocks = allBlocks.filter { it.scheduledDate == today }
             
+            android.util.Log.d("TodayViewModel", "Found ${todayBlocks.size} blocks for today")
+            android.util.Log.d("TodayViewModel", "Today's blocks completion status: ${todayBlocks.map { "${it.subjectName}: ${it.isCompleted}" }}")
+            
             if (todayBlocks.isNotEmpty()) {
                 val allTodayBlocksCompleted = todayBlocks.all { it.isCompleted }
                 
+                android.util.Log.d("TodayViewModel", "All today's blocks completed: $allTodayBlocksCompleted")
+                
                 if (allTodayBlocksCompleted) {
+                    android.util.Log.d("TodayViewModel", "All today's blocks are completed - triggering daily summary")
                     // Trigger daily summary for today
                     triggerDailySummary()
                 }
             }
+        } else {
+            android.util.Log.d("TodayViewModel", "Selected date is not today, skipping completion check")
         }
     }
     
     private fun triggerDailySummary() {
         viewModelScope.launch {
             try {
-                android.util.Log.d("TodayViewModel", "All today's blocks completed - triggering daily summary")
-                // Navigate to daily summary
-                onNavigateToDailySummary?.invoke()
+                android.util.Log.d("TodayViewModel", "triggerDailySummary() called")
+                android.util.Log.d("TodayViewModel", "Navigation callback available: ${onNavigateToDailySummary != null}")
+                
+                if (onNavigateToDailySummary != null) {
+                    android.util.Log.d("TodayViewModel", "Invoking daily summary navigation")
+                    onNavigateToDailySummary?.invoke()
+                } else {
+                    android.util.Log.w("TodayViewModel", "Daily summary navigation callback is null - cannot navigate")
+                }
             } catch (e: Exception) {
                 android.util.Log.e("TodayViewModel", "Error triggering daily summary", e)
             }
@@ -424,8 +444,16 @@ class TodayViewModel @Inject constructor(
                 }
                 
                 // Check for schedule completion after completing a block
+                android.util.Log.d("TodayViewModel", "Block completion check - was incomplete: ${!block.isCompleted}, xpChange: $xpChange")
                 if (!block.isCompleted && xpChange > 0) {
-                    checkForScheduleCompletionAfterBlockCompletion()
+                    android.util.Log.d("TodayViewModel", "Calling checkForScheduleCompletionAfterBlockCompletion()")
+                    // Small delay to ensure database transaction completes
+                    viewModelScope.launch {
+                        kotlinx.coroutines.delay(100) // Wait 100ms for database update
+                        checkForScheduleCompletionAfterBlockCompletion()
+                    }
+                } else {
+                    android.util.Log.d("TodayViewModel", "Skipping completion check - block was already completed or no XP change")
                 }
             } catch (e: Exception) {
                 // Handle error
@@ -457,8 +485,18 @@ class TodayViewModel @Inject constructor(
     }
     
     fun getFormattedSelectedDate(): String {
-        val formatter = DateTimeFormatter.ofPattern("EEEE, MMMM d, yyyy")
-        return _selectedDate.value.format(formatter)
+        val formatter = if (_selectedDate.value.year == LocalDate.now().year) {
+            DateTimeFormatter.ofPattern("MMM d") // Short format for current year
+        } else {
+            DateTimeFormatter.ofPattern("MMM d, yyyy") // Include year for different years
+        }
+        val fullDate = _selectedDate.value
+        return when {
+            fullDate == LocalDate.now() -> "Today"
+            fullDate == LocalDate.now().minusDays(1) -> "Yesterday"
+            fullDate == LocalDate.now().plusDays(1) -> "Tomorrow"
+            else -> _selectedDate.value.format(formatter)
+        }
     }
     
     fun isSelectedDateToday(): Boolean {
