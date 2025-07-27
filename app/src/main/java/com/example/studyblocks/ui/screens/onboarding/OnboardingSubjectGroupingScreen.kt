@@ -298,7 +298,7 @@ fun OnboardingSubjectGroupingScreen(
         
         // Progress indicator
         Text(
-            text = "Step 6 of 6",
+            text = "Step 6 of 7",
             fontSize = 12.sp,
             color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.6f),
             textAlign = TextAlign.Center,

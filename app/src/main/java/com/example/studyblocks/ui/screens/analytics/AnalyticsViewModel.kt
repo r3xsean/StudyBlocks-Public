@@ -185,6 +185,42 @@ class AnalyticsViewModel @Inject constructor(
         initialValue = emptyMap()
     )
 
+    // Weekly completion percentages by day of the week (aggregated across all weeks)
+    val weeklyCompletionData: StateFlow<List<Triple<String, Int, Int>>> = _currentUser.filterNotNull().flatMapLatest { user ->
+        // Get blocks from the last 30 days to have enough data for meaningful day-of-week analysis
+        val endDate = LocalDate.now()
+        val startDate = endDate.minusDays(29) // Last 30 days
+        
+        studyRepository.getBlocksForDateRange(user.id, startDate, endDate).map { blocks ->
+            val dayAbbreviations = mapOf(
+                1 to "Mon", 2 to "Tue", 3 to "Wed", 4 to "Thu", 
+                5 to "Fri", 6 to "Sat", 7 to "Sun"
+            )
+            
+            // Group blocks by day of week (not specific date)
+            val blocksByDayOfWeek = blocks.groupBy { it.scheduledDate.dayOfWeek.value }
+            
+            // Calculate completion data for each day of the week
+            listOf(1, 2, 3, 4, 5, 6, 7).map { dayOfWeek ->
+                val dayAbbr = dayAbbreviations[dayOfWeek] ?: "Sun"
+                val blocksForDay = blocksByDayOfWeek[dayOfWeek] ?: emptyList()
+                
+                val totalBlocks = blocksForDay.size
+                val completedBlocks = blocksForDay.count { it.isCompleted }
+                val completionPercentage = if (totalBlocks > 0) {
+                    (completedBlocks * 100) / totalBlocks
+                } else 0
+                
+                // Return: (day, total blocks, completion percentage)
+                Triple(dayAbbr, totalBlocks, completionPercentage)
+            }
+        }
+    }.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5000),
+        initialValue = emptyList()
+    )
+
     init {
         loadCurrentUser()
     }

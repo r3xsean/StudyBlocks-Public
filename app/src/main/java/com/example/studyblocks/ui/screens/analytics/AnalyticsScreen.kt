@@ -41,6 +41,11 @@ import com.example.studyblocks.repository.LevelPrediction
 import com.example.studyblocks.ui.components.ModernCard
 import com.example.studyblocks.ui.components.StatisticCard
 import com.example.studyblocks.ui.components.XPProgressBar
+import com.example.studyblocks.ui.components.StudyMinutesChart
+import com.example.studyblocks.ui.components.WeeklyCompletionChart
+import com.example.studyblocks.ui.components.ProductivityHeatmap
+import com.example.studyblocks.ui.components.SubjectDistributionChart
+import com.example.studyblocks.ui.components.InsightCard
 import com.example.studyblocks.ui.theme.StudyBlocksTypography
 import com.example.studyblocks.ui.theme.StudyGradients
 import com.example.studyblocks.ui.theme.XPGold
@@ -62,6 +67,7 @@ fun AnalyticsScreen(
     val productiveHours by viewModel.productiveHours.collectAsState()
     val studyStreak by viewModel.studyStreak.collectAsState()
     val levelPredictions by viewModel.levelPredictions.collectAsState()
+    val weeklyCompletionData by viewModel.weeklyCompletionData.collectAsState()
     val isLoading by viewModel.isLoading.collectAsState()
 
     Box(
@@ -117,7 +123,7 @@ fun AnalyticsScreen(
                 
                 LazyColumn(
                     modifier = Modifier.fillMaxSize(),
-                    verticalArrangement = Arrangement.spacedBy(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(20.dp),
                     contentPadding = PaddingValues(bottom = 100.dp)
                 ) {
                     // Global XP Summary with integrated stats
@@ -125,31 +131,38 @@ fun AnalyticsScreen(
                         ModernGlobalXPCard(globalStats, studyOverview)
                     }
 
-
-                    // Most Productive Hours
+                    // Weekly Completion Chart
                     item {
-                        MostProductiveHoursCard(productiveHours)
+                        WeeklyCompletionChart(
+                            weeklyData = weeklyCompletionData,
+                            modifier = Modifier.fillMaxWidth()
+                        )
                     }
-                    
+
+                    // Productivity Heatmap
+                    item {
+                        ProductivityHeatmap(
+                            hourlyData = productiveHours,
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                    }
+
+                    // Subject Distribution Chart
+                    item {
+                        val subjectData = subjectAnalytics.map { subject ->
+                            subject.name to subject.totalMinutesStudied
+                        }
+                        SubjectDistributionChart(
+                            subjectData = subjectData,
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                    }
+
                     // Study Streak
                     item {
                         StudyStreakCard(studyStreak)
                     }
 
-                    // Subject Analytics
-                    item {
-                        SubjectAnalyticsSection(subjectAnalytics)
-                    }
-
-                    // Learning Insights
-                    item {
-                        ModernLearningInsights(subjectAnalytics)
-                    }
-                    
-                    // Schedule Optimization
-                    item {
-                        ScheduleOptimizationCard(productiveHours, subjectAnalytics)
-                    }
                     
                     // Level Predictions
                     item {
@@ -1164,3 +1177,5 @@ private fun LevelPredictionsCard(levelPredictions: Map<String, LevelPrediction>)
         }
     }
 }
+
+

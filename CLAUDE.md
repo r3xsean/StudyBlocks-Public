@@ -23,7 +23,7 @@ StudyBlocks is a comprehensive Android application that helps students organize 
 - **Material Design 3**: Modern UI with dynamic theming and extended icon support
 - **Jetpack Compose**: Fully declarative UI with smooth animations and state management
 - **Edge-to-edge Display**: Immersive full-screen experience
-- **Cross-device Sync**: Firebase-powered data synchronization with conflict resolution
+- **Local Data Storage**: Room database with offline-first architecture (Cloud sync removed for open source)
 
 ### 🎯 Core Functionality
 
@@ -55,10 +55,10 @@ StudyBlocks is a comprehensive Android application that helps students organize 
 - **Session History**: Comprehensive tracking with Room database persistence
 
 #### 👤 Profile Tab
-- **Authentication**: Firebase Auth with Google Sign-In integration
+- **Authentication**: Email/password authentication (Firebase removed for open source)
 - **Global Statistics**: Overall XP, level, and achievement tracking
 - **Theme Settings**: Light/Dark/System mode preferences with Material You support
-- **Data Management**: Export, sync, and account settings with privacy controls
+- **Data Management**: Local data export and account settings
 
 ## Technical Architecture
 
@@ -71,12 +71,11 @@ StudyBlocks is a comprehensive Android application that helps students organize 
 ### 🛠️ Technology Stack
 - **UI Framework**: Jetpack Compose with Material Design 3 and extended icons
 - **Database**: Room with SQLite, type converters, and optimized queries
-- **Authentication**: Firebase Auth with Google Play Services integration
-- **Cloud Storage**: Firebase Firestore for cross-device synchronization
+- **Authentication**: Local authentication (Firebase dependencies removed)
 - **Navigation**: Jetpack Navigation Compose with type safety
 - **Reactive Programming**: Kotlin Flows, StateFlow, and Coroutines
 - **Background Work**: WorkManager with Hilt integration for notifications
-- **Charts**: MPAndroidChart for analytics visualization
+- **Charts**: Vico charts for analytics visualization
 - **Build System**: Kotlin DSL with version catalogs
 
 ### 🧮 XP and Scheduling Algorithms
@@ -150,11 +149,11 @@ val dailyCapacity = when (date.dayOfWeek) {
 
 ## Configuration
 
-### Firebase Setup
-1. Create a new Firebase project
-2. Add Android app with package name: `com.example.studyblocks`
-3. Download `google-services.json` to `app/` directory
-4. Enable Authentication and Firestore in Firebase Console
+### Authentication Note
+**Note for Open Source Version**: Firebase authentication and Google Sign-In have been removed from this version to eliminate API key dependencies. The app currently uses email/password authentication through Firebase Auth, but the Firebase dependencies are commented out in the build files. You can either:
+1. Re-enable Firebase by uncommenting the dependencies and adding your own `google-services.json`
+2. Implement an alternative authentication backend
+3. Use the app in offline-only mode (requires removing authentication screens)
 
 ### Development Environment
 - **Android Studio**: Latest stable version

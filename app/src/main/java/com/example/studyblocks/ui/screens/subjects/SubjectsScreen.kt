@@ -892,15 +892,12 @@ fun EnhancedSubjectCard(
         else -> Color(0xFF42A5F5) // Blue for excellent confidence
     }
     
-    Box(
-        modifier = modifier
-            .fillMaxWidth()
-            .background(
-                Color.White,
-                RoundedCornerShape(20.dp)
-            )
-            .clickable { onClick() }
-            .padding(20.dp)
+    ModernCard(
+        onClick = { onClick() },
+        modifier = modifier.fillMaxWidth(),
+        elevation = 8.dp,
+        cornerRadius = 20.dp,
+        colors = CardDefaults.cardColors(containerColor = Color.White)
     ) {
         Row(
             modifier = Modifier.fillMaxWidth(),
@@ -931,7 +928,7 @@ fun EnhancedSubjectCard(
             ) {
                 Row(
                     horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically,
+                    verticalAlignment = Alignment.Top,
                     modifier = Modifier.fillMaxWidth()
                 ) {
                     Text(
@@ -939,31 +936,37 @@ fun EnhancedSubjectCard(
                         style = StudyBlocksTypography.subjectTitle,
                         color = MaterialTheme.colorScheme.onSurface,
                         fontSize = 20.sp,
-                        fontWeight = FontWeight.Bold
+                        fontWeight = FontWeight.Bold,
+                        modifier = Modifier.weight(1f, fill = false),
+                        maxLines = 2,
+                        overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
                     )
                     
-                    // Level badge
+                    Spacer(modifier = Modifier.width(12.dp))
+                    
+                    // Level badge - now properly constrained and won't get cut off
                     Box(
                         modifier = Modifier
                             .background(
                                 confidenceColor.copy(alpha = 0.15f),
                                 RoundedCornerShape(12.dp)
                             )
-                            .padding(horizontal = 12.dp, vertical = 4.dp)
+                            .padding(horizontal = 10.dp, vertical = 4.dp)
                     ) {
                         Row(
                             verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(4.dp)
+                            horizontalArrangement = Arrangement.spacedBy(3.dp)
                         ) {
                             Text(
                                 text = "⭐",
-                                fontSize = 12.sp
+                                fontSize = 11.sp
                             )
                             Text(
                                 text = "Level ${subject.level}",
-                                style = MaterialTheme.typography.labelMedium,
+                                style = MaterialTheme.typography.labelSmall,
                                 color = confidenceColor,
-                                fontWeight = FontWeight.SemiBold
+                                fontWeight = FontWeight.SemiBold,
+                                maxLines = 1
                             )
                         }
                     }

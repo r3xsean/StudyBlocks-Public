@@ -32,8 +32,12 @@ import com.example.studyblocks.ui.screens.onboarding.OnboardingScheduleHorizonSc
 import com.example.studyblocks.ui.screens.onboarding.OnboardingDailyBlocksScreen
 import com.example.studyblocks.ui.screens.onboarding.OnboardingBlockDurationScreen
 import com.example.studyblocks.ui.screens.onboarding.OnboardingSubjectGroupingScreen
+import com.example.studyblocks.ui.screens.onboarding.OnboardingNotificationPermissionScreen
 import com.example.studyblocks.ui.screens.onboarding.OnboardingScheduleResultDialog
+import com.example.studyblocks.ui.screens.summary.DailySummaryScreen
 import com.example.studyblocks.repository.SchedulingResult
+import com.example.studyblocks.notifications.NotificationService
+import javax.inject.Inject
 
 @Composable
 fun StudyBlocksNavigation(
@@ -148,6 +152,12 @@ fun StudyBlocksNavigation(
             )
         }
         
+        composable(Screen.DailySummary.route) {
+            DailySummaryScreen(
+                navController = navController
+            )
+        }
+        
         // Onboarding screens
         composable(Screen.OnboardingWelcome.route) {
             OnboardingWelcomeScreen(navController = navController)
@@ -233,19 +243,7 @@ fun StudyBlocksNavigation(
                     onboardingViewModel.setSubjectGrouping(grouping)
                 },
                 onNext = {
-                    println("DEBUG Navigation: onComplete callback triggered")
-                    if (authState is com.example.studyblocks.auth.AuthState.Authenticated) {
-                        println("DEBUG Navigation: User is authenticated, starting onboarding completion")
-                        println("DEBUG Navigation: User ID: ${authState.user.uid}")
-                        
-                        // Complete onboarding process - this will generate schedule and show dialog
-                        onboardingViewModel.completeOnboarding(authState.user.uid)
-                        
-                        // DON'T call markOnboardingCompleted() here - wait for dialog dismissal
-                        println("DEBUG Navigation: Onboarding process started, waiting for dialog dismissal")
-                    } else {
-                        println("DEBUG Navigation: User not authenticated, cannot complete onboarding")
-                    }
+                    navController.navigate(Screen.OnboardingNotificationPermission.route)
                 }
             )
             
@@ -321,6 +319,112 @@ fun StudyBlocksNavigation(
                 }
             }
         }
+        
+        composable(Screen.OnboardingNotificationPermission.route) {
+            val context = androidx.compose.ui.platform.LocalContext.current
+            val onboardingViewModel: com.example.studyblocks.ui.screens.onboarding.OnboardingViewModel = 
+                androidx.hilt.navigation.compose.hiltViewModel(context as androidx.activity.ComponentActivity)
+            val authViewModel: com.example.studyblocks.auth.AuthViewModel = 
+                androidx.hilt.navigation.compose.hiltViewModel(context as androidx.activity.ComponentActivity)
+            // Get notification service through TodayViewModel which has it injected
+            val todayViewModel: com.example.studyblocks.ui.screens.today.TodayViewModel = 
+                androidx.hilt.navigation.compose.hiltViewModel(context as androidx.activity.ComponentActivity)
+            val notificationService = todayViewModel.notificationService
+            
+            OnboardingNotificationPermissionScreen(
+                navController = navController,
+                notificationService = notificationService,
+                onNext = {
+                    val authState = authViewModel.authState.value
+                    println("DEBUG Navigation: Notification permission onNext triggered")
+                    if (authState is com.example.studyblocks.auth.AuthState.Authenticated) {
+                        println("DEBUG Navigation: User is authenticated, starting onboarding completion")
+                        println("DEBUG Navigation: User ID: ${authState.user.uid}")
+                        
+                        // Complete onboarding process - this will generate schedule and show dialog
+                        onboardingViewModel.completeOnboarding(authState.user.uid)
+                        
+                        // DON'T call markOnboardingCompleted() here - wait for dialog dismissal
+                        println("DEBUG Navigation: Onboarding process started, waiting for dialog dismissal")
+                    } else {
+                        println("DEBUG Navigation: User not authenticated, cannot complete onboarding")
+                    }
+                }
+            )
+            
+            // Handle onboarding completion and schedule result dialog
+            val scheduleResult by onboardingViewModel.scheduleResult.collectAsState()
+            val onboardingComplete by onboardingViewModel.onboardingComplete.collectAsState()
+            
+            // Completely local state management for dialog
+            var showOnboardingResultDialog by remember { mutableStateOf(false) }
+            var savedScheduleResult by remember { mutableStateOf<SchedulingResult?>(null) }
+            var dialogDismissed by remember { mutableStateOf(false) }
+            
+            // Capture schedule result exactly once when it becomes available
+            LaunchedEffect(scheduleResult) {
+                if (scheduleResult != null && savedScheduleResult == null && !dialogDismissed) {
+                    println("DEBUG Navigation: Capturing schedule result for dialog")
+                    savedScheduleResult = scheduleResult
+                    showOnboardingResultDialog = true
+                }
+            }
+            
+            // Handle cleanup after dialog dismissal
+            LaunchedEffect(dialogDismissed) {
+                if (dialogDismissed) {
+                    println("DEBUG Navigation: Starting cleanup after dialog dismissal...")
+                    kotlinx.coroutines.delay(100) // Brief delay for state stabilization
+                    
+                    // Clear all onboarding state completely
+                    onboardingViewModel.resetOnboardingState()
+                    println("DEBUG Navigation: Cleared onboarding state")
+                }
+            }
+            
+            // Show schedule result dialog if we have results
+            if (showOnboardingResultDialog && savedScheduleResult != null) {
+                OnboardingScheduleResultDialog(
+                    result = savedScheduleResult!!,
+                    onDismiss = {
+                        println("DEBUG Navigation: Onboarding result dialog dismissed by user")
+                        showOnboardingResultDialog = false
+                        dialogDismissed = true
+                        
+                        // NOW mark onboarding as completed - this will trigger navigation
+                        authViewModel.markOnboardingCompleted()
+                        println("DEBUG Navigation: Called markOnboardingCompleted() after dialog dismissal")
+                        
+                        // Force navigation to Today screen immediately after marking onboarding complete
+                        println("DEBUG Navigation: Force navigating to Today screen after onboarding completion")
+                        navController.navigate(Screen.Today.route) {
+                            popUpTo(0) { inclusive = true }
+                        }
+                    }
+                )
+            }
+            
+            // Fallback navigation if no schedule result after reasonable time
+            LaunchedEffect(onboardingComplete) {
+                if (onboardingComplete && !dialogDismissed) {
+                    println("DEBUG Navigation: Onboarding complete, waiting for schedule result...")
+                    kotlinx.coroutines.delay(4000) // Wait longer for schedule generation
+                    
+                    // Only navigate if dialog hasn't been shown or dismissed
+                    if (!showOnboardingResultDialog && !dialogDismissed) {
+                        println("DEBUG Navigation: No schedule result, using fallback navigation")
+                        
+                        // Mark onboarding as completed and force navigation
+                        authViewModel.markOnboardingCompleted()
+                        onboardingViewModel.resetOnboardingState()
+                        println("DEBUG Navigation: Fallback - forcing navigation to Today screen")
+                        navController.navigate(Screen.Today.route) {
+                            popUpTo(0) { inclusive = true }
+                        }
+                    }
+                }
+            }
+        }
     }
 }
 
@@ -340,5 +444,7 @@ sealed class Screen(val route: String) {
     object OnboardingDailyBlocks : Screen("onboarding_daily_blocks")
     object OnboardingBlockDuration : Screen("onboarding_block_duration")
     object OnboardingSubjectGrouping : Screen("onboarding_subject_grouping")
+    object OnboardingNotificationPermission : Screen("onboarding_notification_permission")
+    object DailySummary : Screen("daily_summary")
     object ConfidenceReevaluation : Screen("confidence_reevaluation")
 }

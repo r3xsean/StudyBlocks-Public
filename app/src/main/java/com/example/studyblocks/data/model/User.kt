@@ -16,6 +16,7 @@ data class User(
     val hasCompletedOnboarding: Boolean = false,
     val defaultBlockDuration: Int = 25,
     val preferredBlocksPerDay: Int = 3,
+    val pendingSummaryDate: String? = null, // Format: "YYYY-MM-DD" - indicates date for which summary should be shown
     val createdAt: LocalDateTime = LocalDateTime.now(),
     val lastSyncAt: LocalDateTime = LocalDateTime.now(),
     val isSignedIn: Boolean = false

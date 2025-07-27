@@ -14,6 +14,7 @@ import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import java.time.LocalDate
+import java.time.LocalTime
 import java.time.format.DateTimeFormatter
 import java.time.format.TextStyle
 import java.util.*
@@ -22,7 +23,8 @@ import javax.inject.Inject
 @OptIn(ExperimentalCoroutinesApi::class)
 @HiltViewModel
 class TodayViewModel @Inject constructor(
-    private val studyRepository: StudyRepository
+    private val studyRepository: StudyRepository,
+    val notificationService: com.example.studyblocks.notifications.NotificationService
 ) : ViewModel() {
     
     private val _selectedDate = MutableStateFlow(LocalDate.now())
@@ -39,6 +41,21 @@ class TodayViewModel @Inject constructor(
     
     private val _showCustomBlockDialog = MutableStateFlow(false)
     val showCustomBlockDialog = _showCustomBlockDialog.asStateFlow()
+    
+    private val _showRescheduleDialog = MutableStateFlow<StudyBlock?>(null)
+    val showRescheduleDialog = _showRescheduleDialog.asStateFlow()
+    
+    private val _showSummaryDialog = MutableStateFlow(false)
+    val showSummaryDialog = _showSummaryDialog.asStateFlow()
+    
+    private val _undoSnackbarVisible = MutableStateFlow(false)
+    val undoSnackbarVisible = _undoSnackbarVisible.asStateFlow()
+    
+    private val _undoMessage = MutableStateFlow("")
+    val undoMessage = _undoMessage.asStateFlow()
+    
+    // Store the last reschedule operation for undo functionality
+    private var lastRescheduleOperation: RescheduleOperation? = null
     
     
     private val _weekDates = MutableStateFlow<List<WeekDate>>(emptyList())
@@ -66,6 +83,30 @@ class TodayViewModel @Inject constructor(
         loadCurrentUser()
         generateWeekDates()
         checkAndGenerateScheduleIfNeeded()
+        
+        // Initialize notification scheduling when user is available
+        viewModelScope.launch {
+            _currentUser.first { it != null }
+            // Schedule daily summary notifications once user is authenticated
+            notificationService.scheduleDailySummary(enabled = true)
+        }
+        
+        // Check for pending summary when ViewModel is created (app opened/resumed)
+        viewModelScope.launch {
+            // Wait for user to be loaded first
+            _currentUser.first { it != null }
+            checkAndShowPendingSummary()
+        }
+        
+        // Watch for changes in user data to handle live summary triggers
+        viewModelScope.launch {
+            _currentUser.collect { user ->
+                if (user?.pendingSummaryDate != null && !_showSummaryDialog.value) {
+                    // Show summary dialog when pending date is set and dialog isn't already shown
+                    _showSummaryDialog.value = true
+                }
+            }
+        }
     }
     
     val studyBlocksForSelectedDate: StateFlow<List<StudyBlock>> = combine(
@@ -112,6 +153,34 @@ class TodayViewModel @Inject constructor(
         initialValue = emptyList()
     )
     
+    // Yesterday's blocks for summary dialog
+    val yesterdayBlocks: StateFlow<List<StudyBlock>> = _currentUser.flatMapLatest { user ->
+        if (user != null) {
+            val yesterday = LocalDate.now().minusDays(1)
+            studyRepository.getBlocksForDate(user.id, yesterday)
+        } else {
+            flowOf(emptyList())
+        }
+    }.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5000),
+        initialValue = emptyList()
+    )
+    
+    // Tomorrow's blocks for summary dialog
+    val tomorrowBlocks: StateFlow<List<StudyBlock>> = _currentUser.flatMapLatest { user ->
+        if (user != null) {
+            val tomorrow = LocalDate.now().plusDays(1)
+            studyRepository.getBlocksForDate(user.id, tomorrow)
+        } else {
+            flowOf(emptyList())
+        }
+    }.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5000),
+        initialValue = emptyList()
+    )
+    
     val completionStats: StateFlow<CompletionStats> = studyBlocksForSelectedDate.map { blocks ->
         val total = blocks.size
         val completed = blocks.count { it.isCompleted }
@@ -136,6 +205,9 @@ class TodayViewModel @Inject constructor(
     
     // Navigation callback for schedule completion
     private var onNavigateToConfidenceReevaluation: (() -> Unit)? = null
+    
+    // Navigation callback for daily summary when all today's blocks are completed
+    private var onNavigateToDailySummary: (() -> Unit)? = null
     
     private fun loadCurrentUser() {
         viewModelScope.launch {
@@ -170,6 +242,37 @@ class TodayViewModel @Inject constructor(
             if (allScheduledBlocksCompleted) {
                 hasShownConfidenceDialog = true
                 onNavigateToConfidenceReevaluation?.invoke()
+            }
+        }
+        
+        // Check if all TODAY's blocks are completed and trigger daily summary
+        checkForTodayCompletion(allBlocks)
+    }
+    
+    private fun checkForTodayCompletion(allBlocks: List<StudyBlock>) {
+        if (isSelectedDateToday()) {
+            val today = LocalDate.now()
+            val todayBlocks = allBlocks.filter { it.scheduledDate == today }
+            
+            if (todayBlocks.isNotEmpty()) {
+                val allTodayBlocksCompleted = todayBlocks.all { it.isCompleted }
+                
+                if (allTodayBlocksCompleted) {
+                    // Trigger daily summary for today
+                    triggerDailySummary()
+                }
+            }
+        }
+    }
+    
+    private fun triggerDailySummary() {
+        viewModelScope.launch {
+            try {
+                android.util.Log.d("TodayViewModel", "All today's blocks completed - triggering daily summary")
+                // Navigate to daily summary
+                onNavigateToDailySummary?.invoke()
+            } catch (e: Exception) {
+                android.util.Log.e("TodayViewModel", "Error triggering daily summary", e)
             }
         }
     }
@@ -370,6 +473,71 @@ class TodayViewModel @Inject constructor(
         _showCustomBlockDialog.value = false
     }
     
+    fun showSummaryDialog() {
+        _showSummaryDialog.value = true
+    }
+    
+    fun hideSummaryDialog() {
+        _showSummaryDialog.value = false
+        // Clear the pending summary date when dialog is dismissed
+        viewModelScope.launch {
+            val user = _currentUser.value
+            if (user != null) {
+                studyRepository.setPendingSummaryDate(user.id, null)
+            }
+        }
+    }
+    
+    fun checkAndShowPendingSummary() {
+        viewModelScope.launch {
+            val user = _currentUser.value
+            if (user?.pendingSummaryDate != null) {
+                // Show summary dialog if there's a pending summary
+                _showSummaryDialog.value = true
+            }
+        }
+    }
+    
+    // Test method to manually trigger summary (for testing without waiting for midnight)
+    fun testTriggerSummary() {
+        viewModelScope.launch {
+            val user = _currentUser.value
+            if (user != null) {
+                val yesterday = LocalDate.now().minusDays(1)
+                studyRepository.setPendingSummaryDate(user.id, yesterday.toString())
+                android.util.Log.d("TodayViewModel", "Test: Triggered summary for date $yesterday")
+            }
+        }
+    }
+    
+    // Test method to trigger the full daily summary worker (for testing complete flow)
+    fun testTriggerWorker() {
+        if (notificationService.hasNotificationPermission()) {
+            notificationService.testTriggerDailySummary()
+            android.util.Log.d("TodayViewModel", "Test: Triggered full daily summary worker")
+        } else {
+            android.util.Log.d("TodayViewModel", "Test: Requesting notification permission first")
+            com.example.studyblocks.MainActivity.requestNotificationPermission()
+        }
+    }
+    
+    // Test method to show a simple notification (for testing permissions)
+    fun testShowNotification() {
+        android.util.Log.d("TodayViewModel", "Test: testShowNotification() called")
+        
+        val hasPermission = notificationService.hasNotificationPermission()
+        android.util.Log.d("TodayViewModel", "Test: hasNotificationPermission = $hasPermission")
+        
+        if (hasPermission) {
+            android.util.Log.d("TodayViewModel", "Test: Permission granted, showing notification")
+            notificationService.testShowSimpleNotification()
+        } else {
+            android.util.Log.d("TodayViewModel", "Test: No permission - will attempt to show notification anyway (may trigger system permission dialog)")
+            // For Android 13+, trying to show a notification without permission should trigger the system permission dialog
+            notificationService.testShowSimpleNotification()
+        }
+    }
+    
     fun addCustomBlock(subjectId: String, durationMinutes: Int) {
         viewModelScope.launch {
             val user = _currentUser.value
@@ -423,6 +591,10 @@ class TodayViewModel @Inject constructor(
         onNavigateToConfidenceReevaluation = onNavigate
     }
     
+    fun setDailySummaryNavigationCallback(onNavigate: () -> Unit) {
+        onNavigateToDailySummary = onNavigate
+    }
+    
     
     fun updateSubjectConfidences(confidenceUpdates: Map<String, Int>) {
         viewModelScope.launch {
@@ -437,6 +609,118 @@ class TodayViewModel @Inject constructor(
                 println("Failed to update subject confidences: ${e.message}")
             }
         }
+    }
+    
+    // Reschedule functionality
+    fun showRescheduleDialog(block: StudyBlock) {
+        _showRescheduleDialog.value = block
+    }
+    
+    fun hideRescheduleDialog() {
+        _showRescheduleDialog.value = null
+    }
+    
+    fun rescheduleBlock(
+        block: StudyBlock,
+        option: com.example.studyblocks.ui.components.RescheduleOption,
+        customDate: LocalDate? = null,
+        customTime: LocalTime? = null
+    ) {
+        viewModelScope.launch {
+            val user = _currentUser.value ?: return@launch
+            
+            _isRescheduling.value = true
+            try {
+                val targetDate = when (option) {
+                    com.example.studyblocks.ui.components.RescheduleOption.LATER_TODAY -> {
+                        LocalDate.now()
+                    }
+                    com.example.studyblocks.ui.components.RescheduleOption.TODAY -> {
+                        LocalDate.now()
+                    }
+                    com.example.studyblocks.ui.components.RescheduleOption.TOMORROW -> {
+                        LocalDate.now().plusDays(1)
+                    }
+                    com.example.studyblocks.ui.components.RescheduleOption.CUSTOM_TIME -> {
+                        customDate ?: LocalDate.now().plusDays(1)
+                    }
+                }
+                
+                // Store for undo functionality
+                lastRescheduleOperation = RescheduleOperation(
+                    blockId = block.id,
+                    originalDate = block.scheduledDate,
+                    newDate = targetDate,
+                    option = option
+                )
+                
+                // Update the block's scheduled date
+                studyRepository.rescheduleBlock(block.id, targetDate)
+                
+                // Show undo snackbar
+                val optionText = when (option) {
+                    com.example.studyblocks.ui.components.RescheduleOption.LATER_TODAY -> "later today"
+                    com.example.studyblocks.ui.components.RescheduleOption.TODAY -> "to today"
+                    com.example.studyblocks.ui.components.RescheduleOption.TOMORROW -> "tomorrow"
+                    com.example.studyblocks.ui.components.RescheduleOption.CUSTOM_TIME -> {
+                        val formatter = DateTimeFormatter.ofPattern("MMM d")
+                        "to ${targetDate.format(formatter)}"
+                    }
+                }
+                
+                _undoMessage.value = "Block rescheduled $optionText"
+                _undoSnackbarVisible.value = true
+                
+                // Auto-hide snackbar after 5 seconds
+                kotlinx.coroutines.delay(5000)
+                _undoSnackbarVisible.value = false
+                
+            } catch (e: Exception) {
+                println("Failed to reschedule block: ${e.message}")
+            } finally {
+                _isRescheduling.value = false
+                hideRescheduleDialog()
+            }
+        }
+    }
+    
+    fun undoReschedule() {
+        viewModelScope.launch {
+            val operation = lastRescheduleOperation ?: return@launch
+            
+            try {
+                // Restore the original date
+                studyRepository.rescheduleBlock(operation.blockId, operation.originalDate)
+                
+                // Clear the operation
+                lastRescheduleOperation = null
+                
+                // Hide snackbar
+                _undoSnackbarVisible.value = false
+                
+            } catch (e: Exception) {
+                println("Failed to undo reschedule: ${e.message}")
+            }
+        }
+    }
+    
+    fun dismissUndoSnackbar() {
+        _undoSnackbarVisible.value = false
+        lastRescheduleOperation = null
+    }
+    
+    // Get completed blocks count for a subject on the selected date
+    fun getCompletedBlocksForSubject(subjectId: String): Int {
+        return studyBlocksForSelectedDate.value
+            .filter { it.subjectId == subjectId && it.isCompleted }
+            .size
+    }
+    
+    // Get total blocks count for a subject on the selected date
+    fun getTotalBlocksForSubject(subjectId: String): Int {
+        return studyBlocksForSelectedDate.value
+            .filter { it.subjectId == subjectId }
+            .size
     }
 }
 
@@ -454,4 +738,11 @@ data class CompletionStats(
     val available: Int = 0,
     val overdue: Int = 0,
     val completionPercentage: Int = 0
+)
+
+data class RescheduleOperation(
+    val blockId: String,
+    val originalDate: LocalDate,
+    val newDate: LocalDate,
+    val option: com.example.studyblocks.ui.components.RescheduleOption
 )

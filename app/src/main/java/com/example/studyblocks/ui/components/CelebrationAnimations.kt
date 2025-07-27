@@ -40,7 +40,7 @@ fun LevelUpCelebration(
         initialValue = 0.8f,
         targetValue = 1.2f,
         animationSpec = infiniteRepeatable(
-            animation = tween(1000, easing = EaseInOutCubic),
+            animation = tween(1000, easing = FastOutSlowInEasing),
             repeatMode = RepeatMode.Reverse
         ),
         label = "scale"
@@ -130,14 +130,14 @@ fun XPGainAnimation(
 ) {
     val offsetY by animateFloatAsState(
         targetValue = -100f,
-        animationSpec = tween(1500, easing = EaseOutCubic),
+        animationSpec = tween(1500, easing = FastOutSlowInEasing),
         finishedListener = { onAnimationComplete() },
         label = "xp_offset"
     )
     
     val alpha by animateFloatAsState(
         targetValue = 0f,
-        animationSpec = tween(1500, easing = EaseOutCubic),
+        animationSpec = tween(1500, easing = FastOutSlowInEasing),
         label = "xp_alpha"
     )
     
@@ -184,7 +184,7 @@ fun CompletionBurst(
 ) {
     val animationProgress by animateFloatAsState(
         targetValue = 1f,
-        animationSpec = tween(1000, easing = EaseOutCubic),
+        animationSpec = tween(1000, easing = FastOutSlowInEasing),
         finishedListener = { onAnimationComplete() },
         label = "burst_progress"
     )
@@ -265,7 +265,7 @@ fun PulsatingIcon(
         initialValue = if (isPulsating) 0.9f else 1f,
         targetValue = if (isPulsating) 1.1f else 1f,
         animationSpec = infiniteRepeatable(
-            animation = tween(1000, easing = EaseInOutCubic),
+            animation = tween(1000, easing = FastOutSlowInEasing),
             repeatMode = RepeatMode.Reverse
         ),
         label = "pulse_scale"
@@ -316,7 +316,7 @@ fun CounterAnimation(
         targetValue = targetValue,
         animationSpec = tween(
             durationMillis = animationDuration,
-            easing = EaseOutCubic
+            easing = FastOutSlowInEasing
         ),
         label = "counter"
     ) { value ->

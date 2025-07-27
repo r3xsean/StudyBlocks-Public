@@ -2,11 +2,8 @@
 
 package com.example.studyblocks.auth
 
-import com.google.android.gms.auth.api.signin.GoogleSignInClient
-import com.google.android.gms.auth.api.signin.GoogleSignInOptions
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.auth.FirebaseUser
-import com.google.firebase.auth.GoogleAuthProvider
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.tasks.await
@@ -43,15 +40,6 @@ class AuthRepository @Inject constructor(
         }
     }
     
-    suspend fun signInWithGoogle(idToken: String): AuthResult {
-        return try {
-            val credential = GoogleAuthProvider.getCredential(idToken, null)
-            val result = firebaseAuth.signInWithCredential(credential).await()
-            AuthResult.Success(result.user)
-        } catch (e: Exception) {
-            AuthResult.Error(e.message ?: "Google sign in failed")
-        }
-    }
     
     suspend fun signOut() {
         firebaseAuth.signOut()

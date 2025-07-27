@@ -500,7 +500,7 @@ fun PulsingDot(
         initialValue = 0.5f,
         targetValue = 1.5f,
         animationSpec = infiniteRepeatable(
-            animation = tween(1000, easing = EaseInOutCubic),
+            animation = tween(1000, easing = FastOutSlowInEasing),
             repeatMode = RepeatMode.Reverse
         ),
         label = "dot_scale"
@@ -510,7 +510,7 @@ fun PulsingDot(
         initialValue = 0.3f,
         targetValue = 1f,
         animationSpec = infiniteRepeatable(
-            animation = tween(1000, easing = EaseInOutCubic),
+            animation = tween(1000, easing = FastOutSlowInEasing),
             repeatMode = RepeatMode.Reverse
         ),
         label = "dot_alpha"

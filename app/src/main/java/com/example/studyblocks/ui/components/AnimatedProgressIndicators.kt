@@ -42,7 +42,7 @@ fun AnimatedLinearProgressIndicator(
         targetValue = progress.coerceIn(0f, 1f),
         animationSpec = tween(
             durationMillis = animationDuration,
-            easing = EaseOutCubic
+            easing = FastOutSlowInEasing
         ),
         label = "progress"
     )
@@ -90,7 +90,7 @@ fun AnimatedCircularProgressIndicator(
         targetValue = progress.coerceIn(0f, 1f),
         animationSpec = tween(
             durationMillis = animationDuration,
-            easing = EaseOutCubic
+            easing = FastOutSlowInEasing
         ),
         label = "circular_progress"
     )
@@ -170,7 +170,7 @@ fun XPProgressBar(
         targetValue = progress.coerceIn(0f, 1f),
         animationSpec = tween(
             durationMillis = animationDuration,
-            easing = EaseOutCubic
+            easing = FastOutSlowInEasing
         ),
         label = "xp_progress"
     )
@@ -179,7 +179,7 @@ fun XPProgressBar(
         targetValue = currentXP.toFloat(),
         animationSpec = tween(
             durationMillis = animationDuration,
-            easing = EaseOutCubic
+            easing = FastOutSlowInEasing
         ),
         label = "current_xp"
     )
@@ -301,7 +301,7 @@ fun PulsingProgressDot(
         initialValue = if (isActive) 0.8f else 1f,
         targetValue = if (isActive) 1.2f else 1f,
         animationSpec = infiniteRepeatable(
-            animation = tween(1000, easing = EaseInOutCubic),
+            animation = tween(1000, easing = FastOutSlowInEasing),
             repeatMode = RepeatMode.Reverse
         ),
         label = "dot_scale"
@@ -311,7 +311,7 @@ fun PulsingProgressDot(
         initialValue = if (isActive) 0.6f else 1f,
         targetValue = if (isActive) 1f else 1f,
         animationSpec = infiniteRepeatable(
-            animation = tween(1000, easing = EaseInOutCubic),
+            animation = tween(1000, easing = FastOutSlowInEasing),
             repeatMode = RepeatMode.Reverse
         ),
         label = "dot_alpha"
@@ -342,7 +342,7 @@ fun WaveProgressIndicator(
 ) {
     val animatedProgress by animateFloatAsState(
         targetValue = progress.coerceIn(0f, 1f),
-        animationSpec = tween(1500, easing = EaseOutCubic),
+        animationSpec = tween(1500, easing = FastOutSlowInEasing),
         label = "wave_progress"
     )
     

@@ -24,7 +24,7 @@ import com.example.studyblocks.data.local.dao.SchedulePreferencesDao
         StudySession::class,
         SchedulePreferences::class
     ],
-    version = 5,
+    version = 6,
     exportSchema = false
 )
 @TypeConverters(Converters::class)

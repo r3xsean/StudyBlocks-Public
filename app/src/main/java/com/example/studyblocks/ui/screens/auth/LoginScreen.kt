@@ -157,25 +157,6 @@ fun LoginScreen(
             }
         }
         
-        Spacer(modifier = Modifier.height(16.dp))
-        
-        OutlinedButton(
-            onClick = { 
-                // TODO: Implement Google Sign-In with proper ID token
-                // authViewModel.signInWithGoogle(idToken) 
-            },
-            modifier = Modifier.fillMaxWidth(),
-            enabled = !isLoading
-        ) {
-            Icon(
-                painter = painterResource(id = R.drawable.ic_google),
-                contentDescription = null,
-                modifier = Modifier.size(18.dp)
-            )
-            Spacer(modifier = Modifier.width(8.dp))
-            Text("Continue with Google")
-        }
-        
         Spacer(modifier = Modifier.height(24.dp))
         
         TextButton(

@@ -46,6 +46,21 @@ class StudyRepository @Inject constructor(
     suspend fun insertUser(user: User) = userDao.insertUser(user)
     suspend fun updateUser(user: User) = userDao.updateUser(user)
     
+    suspend fun setPendingSummaryDate(userId: String, summaryDate: String?) {
+        try {
+            val currentUser = getCurrentUser()
+            if (currentUser != null && currentUser.id == userId) {
+                val updatedUser = currentUser.copy(pendingSummaryDate = summaryDate)
+                updateUser(updatedUser)
+                android.util.Log.d("StudyRepository", "Set pending summary date: $summaryDate for user: $userId")
+            } else {
+                android.util.Log.w("StudyRepository", "Cannot set pending summary date - user not found or ID mismatch")
+            }
+        } catch (e: Exception) {
+            android.util.Log.e("StudyRepository", "Error setting pending summary date", e)
+        }
+    }
+    
     // Subject operations
     fun getAllSubjects(userId: String): Flow<List<Subject>> = subjectDao.getAllSubjects(userId)
     suspend fun getSubjectById(id: String): Subject? = subjectDao.getSubjectById(id)
@@ -93,7 +108,18 @@ class StudyRepository @Inject constructor(
     
     suspend fun getBlockById(id: String): StudyBlock? = studyBlockDao.getBlockById(id)
     
+    fun getOverdueBlocks(userId: String): Flow<List<StudyBlock>> =
+        studyBlockDao.getOverdueBlocks(userId, LocalDate.now())
+    
     suspend fun insertStudyBlock(block: StudyBlock) = studyBlockDao.insertBlock(block)
+    
+    suspend fun rescheduleBlock(blockId: String, newDate: LocalDate) {
+        val block = studyBlockDao.getBlockById(blockId)
+        if (block != null) {
+            val updatedBlock = block.copy(scheduledDate = newDate)
+            studyBlockDao.updateBlock(updatedBlock)
+        }
+    }
     
     suspend fun markBlockComplete(blockId: String): Int {
         return blockCompletionMutex.withLock {

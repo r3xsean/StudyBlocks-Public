@@ -111,24 +111,6 @@ class AuthViewModel @Inject constructor(
         }
     }
     
-    fun signInWithGoogle(idToken: String) {
-        viewModelScope.launch {
-            _isLoading.value = true
-            when (val result = authRepository.signInWithGoogle(idToken)) {
-                is AuthResult.Success -> {
-                    result.user?.let { user ->
-                        _authState.value = AuthState.Authenticated(user)
-                        syncUserToDatabase(user)
-                    }
-                }
-                is AuthResult.Error -> {
-                    _authState.value = AuthState.Error(result.message)
-                }
-            }
-            _isLoading.value = false
-        }
-    }
-    
     fun signOut() {
         viewModelScope.launch {
             authRepository.signOut()

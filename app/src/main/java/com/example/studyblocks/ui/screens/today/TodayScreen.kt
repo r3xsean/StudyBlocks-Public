@@ -1,10 +1,14 @@
+@file:OptIn(ExperimentalFoundationApi::class)
+
 package com.example.studyblocks.ui.screens.today
 
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.animation.*
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.foundation.lazy.LazyColumn
@@ -24,13 +28,17 @@ import androidx.compose.material.icons.filled.Timer
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.key
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.LayoutCoordinates
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextDecoration
@@ -58,7 +66,16 @@ import com.example.studyblocks.ui.components.AnimatedFloatingActionButton
 import com.example.studyblocks.ui.theme.StudyBlocksTypography
 import com.example.studyblocks.ui.theme.StudyGradients
 import com.example.studyblocks.navigation.Screen
+import com.example.studyblocks.ui.components.ProgressRing
+import com.example.studyblocks.ui.components.SubjectProgressRing
+import com.example.studyblocks.ui.components.RescheduleDialog
+import com.example.studyblocks.ui.components.RescheduleOption
+import com.example.studyblocks.ui.components.UndoSnackbar
+import com.example.studyblocks.ui.screens.summary.DailySummaryDialog
+import com.example.studyblocks.notifications.NotificationService
 import java.time.LocalDate
+import java.time.LocalTime
+import androidx.hilt.navigation.compose.hiltViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -66,6 +83,7 @@ fun TodayScreen(
     navController: NavController,
     viewModel: TodayViewModel = hiltViewModel()
 ) {
+    val context = LocalContext.current
     val selectedDate by viewModel.selectedDate.collectAsState()
     val weekDates by viewModel.weekDates.collectAsState()
     val studyBlocks by viewModel.studyBlocksForSelectedDate.collectAsState()
@@ -76,16 +94,28 @@ fun TodayScreen(
     val allStudyBlocks by viewModel.allStudyBlocks.collectAsState()
     val xpAnimations by viewModel.xpAnimations.collectAsState()
     val isRescheduling by viewModel.isRescheduling.collectAsState()
+    val showRescheduleDialog by viewModel.showRescheduleDialog.collectAsState()
+    val undoSnackbarVisible by viewModel.undoSnackbarVisible.collectAsState()
+    val undoMessage by viewModel.undoMessage.collectAsState()
+    val showSummaryDialog by viewModel.showSummaryDialog.collectAsState()
+    val yesterdayBlocks by viewModel.yesterdayBlocks.collectAsState()
+    val tomorrowBlocks by viewModel.tomorrowBlocks.collectAsState()
 
     // Set up navigation callback for confidence reevaluation
     LaunchedEffect(Unit) {
         viewModel.setNavigationCallback {
             navController.navigate(Screen.ConfidenceReevaluation.route)
         }
+        
+        // Set up navigation callback for daily summary
+        viewModel.setDailySummaryNavigationCallback {
+            navController.navigate(Screen.DailySummary.route)
+        }
     }
 
     // Clear animations when screen is disposed (navigating away)
-    DisposableEffect(Unit) {
+    // Use a stable key to prevent triggering on every recomposition
+    DisposableEffect(key1 = "today_screen_lifecycle") {
         onDispose {
             viewModel.clearAllXPAnimations()
         }
@@ -192,6 +222,7 @@ fun TodayScreen(
                                     tint = Color.White
                                 )
                             }
+                            
                         }
                         
                         if (!viewModel.isSelectedDateToday()) {
@@ -240,20 +271,28 @@ fun TodayScreen(
                     isLoading = isLoading,
                     onBlockToggle = { block, offset ->
                         viewModel.toggleBlockCompletion(block, offset.x, offset.y)
+                    },
+                    onReschedule = { block ->
+                        viewModel.showRescheduleDialog(block)
                     }
                 )
             }
         } // <-- closes the Column ✅
 
         // Global XP Animation Overlay (keep this outside the Column but inside the root Box)
-        Box(modifier = Modifier.fillMaxSize()) {
+        Box(
+            modifier = Modifier.fillMaxSize()
+        ) {
             xpAnimations.forEach { animation ->
-                GlobalXPAnimation(
-                    xpChange = animation.xpChange,
-                    tapX = animation.tapX,
-                    tapY = animation.tapY,
-                    onAnimationComplete = { viewModel.clearXPAnimation(animation.timestamp) }
-                )
+                // Use stable key to prevent recomposition issues
+                key(animation.timestamp) {
+                    GlobalXPAnimation(
+                        xpChange = animation.xpChange,
+                        tapX = animation.tapX,
+                        tapY = animation.tapY,
+                        onAnimationComplete = { viewModel.clearXPAnimation(animation.timestamp) }
+                    )
+                }
             }
         }
     } // <-- closes the root Box ✅
@@ -267,6 +306,47 @@ fun TodayScreen(
             onSave = { subjectId, durationMinutes ->
                 viewModel.addCustomBlock(subjectId, durationMinutes)
             }
+        )
+    }
+    
+    // Reschedule Dialog
+    showRescheduleDialog?.let { block ->
+        RescheduleDialog(
+            studyBlock = block,
+            onDismiss = { viewModel.hideRescheduleDialog() },
+            onReschedule = { option, customDate, customTime ->
+                viewModel.rescheduleBlock(block, option, customDate, customTime)
+            },
+            currentDate = selectedDate
+        )
+    }
+    
+    // Daily Summary Dialog
+    if (showSummaryDialog) {
+        val completedYesterday = yesterdayBlocks.filter { it.isCompleted }
+        val missedYesterday = yesterdayBlocks.filter { !it.isCompleted }
+        val totalYesterday = yesterdayBlocks.size
+        
+        DailySummaryDialog(
+            onDismiss = { viewModel.hideSummaryDialog() },
+            completedBlocks = completedYesterday,
+            missedBlocks = missedYesterday,
+            tomorrowBlocks = tomorrowBlocks,
+            rescheduledCount = 0, // TODO: Track rescheduled blocks properly
+            totalBlocks = totalYesterday
+        )
+    }
+    
+    // Undo Snackbar positioned at the bottom
+    Box(
+        modifier = Modifier.fillMaxSize(),
+        contentAlignment = Alignment.BottomCenter
+    ) {
+        UndoSnackbar(
+            message = undoMessage,
+            onUndo = { viewModel.undoReschedule() },
+            onDismiss = { viewModel.dismissUndoSnackbar() },
+            isVisible = undoSnackbarVisible
         )
     }
 }
@@ -293,9 +373,15 @@ fun DatePickerRow(
     Box(
         modifier = Modifier
             .fillMaxWidth()
+            .shadow(
+                elevation = 4.dp,
+                shape = RoundedCornerShape(20.dp),
+                ambientColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.1f),
+                spotColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.2f)
+            )
+            .clip(RoundedCornerShape(20.dp))
             .background(
-                Color.White.copy(alpha = 0.95f),
-                RoundedCornerShape(20.dp)
+                Color.White.copy(alpha = 0.95f)
             )
             .padding(vertical = 20.dp)
     ) {
@@ -430,13 +516,15 @@ fun StudyBlocksList(
     studyBlocks: List<StudyBlock>,
     allStudyBlocks: List<StudyBlock>,
     isLoading: Boolean,
-    onBlockToggle: (StudyBlock, Offset) -> Unit
+    onBlockToggle: (StudyBlock, Offset) -> Unit,
+    onReschedule: (StudyBlock) -> Unit
 ) {
     if (studyBlocks.isEmpty()) {
         EmptyState()
     } else {
         LazyColumn(
-            verticalArrangement = Arrangement.spacedBy(8.dp)
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+            contentPadding = PaddingValues(bottom = 16.dp)
         ) {
             items(studyBlocks) { block ->
                 val itemIndex = studyBlocks.indexOf(block)
@@ -451,12 +539,13 @@ fun StudyBlocksList(
                 val totalSubjectBlocks = if (block.isCustomBlock) 0 else allSubjectBlocks.size
                 
                 StaggeredAnimation(itemIndex = itemIndex) {
-                    ModernStudyBlockCard(
+                    EnhancedStudyBlockCard(
                         studyBlock = block,
                         subjectBlockNumber = subjectBlockNumber,
                         totalSubjectBlocks = totalSubjectBlocks,
                         isLoading = isLoading,
-                        onToggle = onBlockToggle
+                        onToggle = onBlockToggle,
+                        onReschedule = { onReschedule(block) }
                     )
                 }
             }
@@ -751,151 +840,245 @@ fun AddCustomBlockDialog(
 
 
 @Composable
-fun ModernStudyBlockCard(
+fun EnhancedStudyBlockCard(
     studyBlock: StudyBlock,
     subjectBlockNumber: Int = studyBlock.blockNumber,
     totalSubjectBlocks: Int = studyBlock.totalBlocksForSubject,
     isLoading: Boolean,
-    onToggle: (StudyBlock, Offset) -> Unit
+    onToggle: (StudyBlock, Offset) -> Unit,
+    onReschedule: () -> Unit
 ) {
     val status = studyBlock.getStatus()
+    
+    // Calculate progress for this subject today (simplified for now)
+    val completedToday = if (studyBlock.isCompleted) 1 else 0
+    val totalToday = 1 // This would be calculated based on all blocks for this subject today
+    
+    val cardScale by animateFloatAsState(
+        targetValue = if (studyBlock.isCompleted) 0.98f else 1f,
+        animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy),
+        label = "card_scale"
+    )
     
     CompletionAnimation(isCompleted = studyBlock.isCompleted) {
         var cardCoords by remember { mutableStateOf<LayoutCoordinates?>(null) }
         
-        StudyBlockCard(
-            onClick = if (studyBlock.canComplete || studyBlock.isCompleted) {
-                {
-                    val coords = cardCoords?.positionInRoot() ?: Offset.Zero
-                    onToggle(studyBlock, coords)
-                }
-            } else null,
+        Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .onGloballyPositioned { cardCoords = it },
-            isCompleted = status == StudyBlockStatus.COMPLETED,
-            isOverdue = status == StudyBlockStatus.OVERDUE,
-            isPending = status == StudyBlockStatus.PENDING
-        ) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                // Subject Icon with background
-                Box(
-                    modifier = Modifier
-                        .size(48.dp)
-                        .background(
-                            MaterialTheme.colorScheme.primaryContainer,
-                            CircleShape
-                        ),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Text(
-                        text = studyBlock.subjectIcon,
-                        style = MaterialTheme.typography.headlineSmall,
-                        color = MaterialTheme.colorScheme.onPrimaryContainer
+                .scale(cardScale)
+                .shadow(
+                    elevation = 6.dp,
+                    shape = RoundedCornerShape(20.dp),
+                    ambientColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.1f),
+                    spotColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.2f)
+                )
+                .clip(RoundedCornerShape(20.dp))
+                .background(
+                    when (status) {
+                        StudyBlockStatus.COMPLETED -> Color(0xFF4CAF50).copy(alpha = 0.1f) // Light green tint
+                        StudyBlockStatus.OVERDUE -> Color(0xFFF44336).copy(alpha = 0.1f) // Light red tint
+                        StudyBlockStatus.PENDING -> MaterialTheme.colorScheme.surface
+                        StudyBlockStatus.AVAILABLE -> MaterialTheme.colorScheme.surface
+                    }
+                )
+                .pointerInput(studyBlock.canComplete, studyBlock.isCompleted) {
+                    detectTapGestures(
+                        onTap = { tapOffset ->
+                            if (studyBlock.canComplete || studyBlock.isCompleted) {
+                                val rootPos = cardCoords?.positionInRoot() ?: Offset.Zero
+                                val globalTapPos = rootPos + tapOffset
+                                onToggle(studyBlock, globalTapPos)
+                            }
+                        },
+                        onLongPress = { onReschedule() }
                     )
                 }
+                .onGloballyPositioned { cardCoords = it }
+        ) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(20.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                // Subject Icon with Progress Ring
+                Box(
+                    contentAlignment = Alignment.Center
+                ) {
+                    SubjectProgressRing(
+                        completedBlocks = completedToday,
+                        totalBlocks = totalToday,
+                        size = 64.dp,
+                        strokeWidth = 4.dp,
+                        showText = false
+                    )
+                    
+                    Box(
+                        modifier = Modifier
+                            .size(48.dp)
+                            .background(
+                                when (status) {
+                                    StudyBlockStatus.COMPLETED -> Color(0xFF4CAF50).copy(alpha = 0.2f) // Green tint
+                                    StudyBlockStatus.OVERDUE -> Color(0xFFF44336).copy(alpha = 0.2f) // Red tint
+                                    else -> MaterialTheme.colorScheme.primaryContainer
+                                },
+                                CircleShape
+                            ),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = studyBlock.subjectIcon,
+                            style = MaterialTheme.typography.headlineMedium,
+                            fontSize = 24.sp,
+                            color = when (status) {
+                                StudyBlockStatus.COMPLETED -> Color(0xFF4CAF50) // Green
+                                StudyBlockStatus.OVERDUE -> Color(0xFFF44336) // Red
+                                else -> MaterialTheme.colorScheme.onPrimaryContainer
+                            }
+                        )
+                    }
+                }
                 
-                Spacer(modifier = Modifier.width(16.dp))
+                Spacer(modifier = Modifier.width(20.dp))
                 
                 // Subject Info
                 Column(
                     modifier = Modifier.weight(1f)
                 ) {
-                    Text(
-                        text = studyBlock.subjectName,
-                        style = StudyBlocksTypography.subjectTitle,
-                        color = MaterialTheme.colorScheme.onSurface,
-                        textDecoration = if (studyBlock.isCompleted) TextDecoration.LineThrough else null
-                    )
+                    Row(
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Text(
+                            text = studyBlock.subjectName,
+                            style = StudyBlocksTypography.subjectTitle,
+                            fontSize = 18.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onSurface,
+                            textDecoration = if (studyBlock.isCompleted) TextDecoration.LineThrough else null,
+                            modifier = Modifier.weight(1f),
+                            maxLines = 1,
+                            overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
+                        )
+                        
+                        Spacer(modifier = Modifier.width(8.dp))
+                        
+                        // Status badge with fixed width to prevent squishing
+                        when (status) {
+                            StudyBlockStatus.COMPLETED -> {
+                                Box(
+                                    modifier = Modifier
+                                        .background(
+                                            MaterialTheme.colorScheme.primary,
+                                            RoundedCornerShape(8.dp)
+                                        )
+                                        .padding(horizontal = 8.dp, vertical = 4.dp)
+                                        .widthIn(min = 60.dp)
+                                ) {
+                                    Text(
+                                        text = "✓ Done",
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = Color.White,
+                                        fontWeight = FontWeight.SemiBold
+                                    )
+                                }
+                            }
+                            StudyBlockStatus.OVERDUE -> {
+                                Box(
+                                    modifier = Modifier
+                                        .background(
+                                            MaterialTheme.colorScheme.error,
+                                            RoundedCornerShape(8.dp)
+                                        )
+                                        .padding(horizontal = 8.dp, vertical = 4.dp)
+                                        .widthIn(min = 70.dp)
+                                ) {
+                                    Text(
+                                        text = "⏰ Overdue",
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = Color.White,
+                                        fontWeight = FontWeight.SemiBold
+                                    )
+                                }
+                            }
+                            else -> {}
+                        }
+                    }
+                    
+                    Spacer(modifier = Modifier.height(8.dp))
                     
                     Row(
-                        horizontalArrangement = Arrangement.spacedBy(4.dp),
+                        horizontalArrangement = Arrangement.spacedBy(16.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        if (!studyBlock.isCustomBlock) {
-                            Text(
-                                text = "Block $subjectBlockNumber/$totalSubjectBlocks",
-                                style = StudyBlocksTypography.blockDuration,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                            Text(
-                                text = "•",
-                                style = StudyBlocksTypography.blockDuration,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        } else {
-                            Text(
-                                text = "Custom Block",
-                                style = StudyBlocksTypography.blockDuration,
-                                color = MaterialTheme.colorScheme.tertiary
-                            )
-                            Text(
-                                text = "•",
-                                style = StudyBlocksTypography.blockDuration,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        }
-                        Text(
-                            text = "${studyBlock.durationMinutes} min",
-                            style = StudyBlocksTypography.blockDuration,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
-                }
-                
-                // Status indicator
-                Box(
-                    modifier = Modifier
-                        .size(32.dp)
-                        .background(
-                            when (status) {
-                                StudyBlockStatus.COMPLETED -> MaterialTheme.colorScheme.primaryContainer
-                                StudyBlockStatus.OVERDUE -> MaterialTheme.colorScheme.errorContainer
-                                StudyBlockStatus.PENDING -> MaterialTheme.colorScheme.tertiaryContainer
-                                StudyBlockStatus.AVAILABLE -> MaterialTheme.colorScheme.surfaceVariant
-                            },
-                            CircleShape
-                        ),
-                    contentAlignment = Alignment.Center
-                ) {
-                    when (status) {
-                        StudyBlockStatus.COMPLETED -> {
-                            Icon(
-                                Icons.Default.CheckCircle,
-                                contentDescription = "Completed",
-                                tint = MaterialTheme.colorScheme.primary,
-                                modifier = Modifier.size(20.dp)
-                            )
-                        }
-                        StudyBlockStatus.OVERDUE -> {
+                        // Duration
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(4.dp)
+                        ) {
                             Icon(
                                 Icons.Default.Timer,
-                                contentDescription = "Overdue",
-                                tint = MaterialTheme.colorScheme.error,
-                                modifier = Modifier.size(16.dp)
+                                contentDescription = null,
+                                modifier = Modifier.size(16.dp),
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                            Text(
+                                text = "${studyBlock.durationMinutes} min",
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                fontWeight = FontWeight.Medium
                             )
                         }
-                        StudyBlockStatus.PENDING -> {
-                            Icon(
-                                Icons.Default.FiberManualRecord,
-                                contentDescription = "Pending",
-                                tint = MaterialTheme.colorScheme.tertiary,
-                                modifier = Modifier.size(12.dp)
-                            )
-                        }
-                        StudyBlockStatus.AVAILABLE -> {
+                        
+                        // Block number or custom indicator
+                        if (!studyBlock.isCustomBlock && totalSubjectBlocks > 0) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(4.dp)
+                            ) {
+                                Icon(
+                                    Icons.Default.FiberManualRecord,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(12.dp),
+                                    tint = MaterialTheme.colorScheme.primary
+                                )
+                                Text(
+                                    text = "$subjectBlockNumber/$totalSubjectBlocks",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    fontWeight = FontWeight.Medium
+                                )
+                            }
+                        } else if (studyBlock.isCustomBlock) {
                             Box(
                                 modifier = Modifier
-                                    .size(12.dp)
                                     .background(
-                                        MaterialTheme.colorScheme.onSurfaceVariant,
-                                        CircleShape
+                                        MaterialTheme.colorScheme.tertiary.copy(alpha = 0.1f),
+                                        RoundedCornerShape(6.dp)
                                     )
-                            )
+                                    .padding(horizontal = 6.dp, vertical = 2.dp)
+                            ) {
+                                Text(
+                                    text = "Custom",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.tertiary,
+                                    fontWeight = FontWeight.SemiBold
+                                )
+                            }
                         }
+                    }
+                    
+                    // Reschedule hint
+                    if (status != StudyBlockStatus.COMPLETED) {
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Text(
+                            text = "Long press to reschedule",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
+                            fontSize = 10.sp
+                        )
                     }
                 }
             }
