@@ -331,7 +331,10 @@ fun TodayScreen(
                             ModernEmptyState()
                         }
                     } else {
-                        items(studyBlocks) { block ->
+                        items(
+                            items = studyBlocks,
+                            key = { block -> block.id } // Use stable key for proper identification
+                        ) { block ->
                             val itemIndex = studyBlocks.indexOf(block)
                             val status = block.getStatus()
                             
@@ -345,6 +348,7 @@ fun TodayScreen(
                                     isPending = status == StudyBlockStatus.PENDING,
                                     isOverdue = status == StudyBlockStatus.OVERDUE,
                                     onClick = { offset ->
+                                        // Pass the specific block to ensure correct identification
                                         viewModel.toggleBlockCompletion(block, offset.x, offset.y)
                                     },
                                     onLongPress = {

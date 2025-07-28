@@ -582,7 +582,7 @@ fun ProductivityHeatmap(
             )
             
             Text(
-                text = "Most productive hours of the day",
+                text = "All hours (0-23) showing productivity patterns",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
@@ -616,12 +616,12 @@ private fun HeatmapGrid(hourlyData: Map<Int, Double>) {
     Column(
         verticalArrangement = Arrangement.spacedBy(4.dp)
     ) {
-        // Time periods covering full 24-hour day
+        // Time periods covering complete 24-hour day (all hours 0-23 are displayed)
         val timePeriods = listOf(
-            "Early Morning" to (0..5),
-            "Morning" to (6..11),
-            "Afternoon" to (12..17),
-            "Evening" to (18..23)
+            "Early Morning" to (0..5),   // Hours: 0, 1, 2, 3, 4, 5
+            "Morning" to (6..11),        // Hours: 6, 7, 8, 9, 10, 11
+            "Afternoon" to (12..17),     // Hours: 12, 13, 14, 15, 16, 17
+            "Evening" to (18..23)        // Hours: 18, 19, 20, 21, 22, 23
         )
         
         timePeriods.forEach { (period, hours) ->
@@ -734,9 +734,9 @@ private fun HeatmapCell(
             Text(
                 text = hour.toString(),
                 style = MaterialTheme.typography.labelSmall,
-                fontSize = 9.sp, // Smaller font for better responsiveness
-                color = if (intensity > 0.5f) Color.White else MaterialTheme.colorScheme.onSurface,
-                fontWeight = if (intensity > 0.7f) FontWeight.Bold else FontWeight.Normal
+                fontSize = 10.sp, // Slightly larger for better readability
+                color = if (intensity > 0.4f) Color.White else MaterialTheme.colorScheme.onSurface,
+                fontWeight = FontWeight.Medium // Consistent medium weight for clarity
             )
         }
     }

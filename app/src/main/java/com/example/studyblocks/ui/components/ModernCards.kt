@@ -446,20 +446,20 @@ fun FloatingStudyCard(
     
     var cardCoords by remember { mutableStateOf<androidx.compose.ui.layout.LayoutCoordinates?>(null) }
     
-    // Optimized animation states for snappier, more responsive feel
+    // Subtle animation states for professional, calm feel
     val animatedScale by animateFloatAsState(
-        targetValue = if (isCompleted) 0.96f else 1f,
-        animationSpec = spring(
-            dampingRatio = Spring.DampingRatioMediumBouncy,
-            stiffness = Spring.StiffnessHigh // Changed to high stiffness for faster response
+        targetValue = if (isCompleted) 0.98f else 1f, // Less dramatic scale change
+        animationSpec = tween(
+            durationMillis = 300, // Slower, more gentle animation
+            easing = FastOutSlowInEasing
         ),
         label = "card_scale"
     )
     
     val animatedAlpha by animateFloatAsState(
-        targetValue = if (isCompleted) 0.8f else 1f, // Less dramatic alpha change
+        targetValue = if (isCompleted) 0.85f else 1f, // Less dramatic alpha change
         animationSpec = tween(
-            durationMillis = 150, // Reduced from 300ms to 150ms for snappier feel
+            durationMillis = 300, // Consistent timing with scale
             easing = FastOutSlowInEasing
         ),
         label = "card_alpha"
@@ -510,10 +510,10 @@ fun FloatingStudyCard(
                 )
                 
                 val iconScale by animateFloatAsState(
-                    targetValue = if (isCompleted) 1.1f else 1f,
-                    animationSpec = spring(
-                        dampingRatio = Spring.DampingRatioMediumBouncy,
-                        stiffness = Spring.StiffnessHigh
+                    targetValue = if (isCompleted) 1.05f else 1f, // Less dramatic scale
+                    animationSpec = tween(
+                        durationMillis = 300,
+                        easing = FastOutSlowInEasing
                     ),
                     label = "icon_scale"
                 )
@@ -573,10 +573,10 @@ fun FloatingStudyCard(
             )
             
             val statusSize by animateDpAsState(
-                targetValue = if (isCompleted) 16.dp else 12.dp,
-                animationSpec = spring(
-                    dampingRatio = Spring.DampingRatioMediumBouncy,
-                    stiffness = Spring.StiffnessHigh
+                targetValue = if (isCompleted) 14.dp else 12.dp, // Less dramatic size change
+                animationSpec = tween(
+                    durationMillis = 300,
+                    easing = FastOutSlowInEasing
                 ),
                 label = "status_size"
             )
@@ -613,12 +613,12 @@ fun ProgressRingCard(
     isFullWidth: Boolean = false,
     animationDuration: Int = 1000
 ) {
-    // Enhanced animated progress with bounce effect for satisfying feedback
+    // Smooth animated progress with subtle, professional feel
     val animatedProgress by animateFloatAsState(
         targetValue = progress,
-        animationSpec = spring(
-            dampingRatio = Spring.DampingRatioMediumBouncy,
-            stiffness = Spring.StiffnessMedium
+        animationSpec = tween(
+            durationMillis = 600, // Reduced from bounce to simple tween with shorter duration
+            easing = FastOutSlowInEasing
         ),
         label = "progress_animation"
     )
@@ -626,21 +626,11 @@ fun ProgressRingCard(
     // Animated progress text for smooth number changes
     val animatedProgressInt by animateIntAsState(
         targetValue = (progress * 100).toInt(),
-        animationSpec = spring(
-            dampingRatio = Spring.DampingRatioMediumBouncy,
-            stiffness = Spring.StiffnessMedium
+        animationSpec = tween(
+            durationMillis = 600,
+            easing = FastOutSlowInEasing
         ),
         label = "progress_text_animation"
-    )
-    
-    // Add a subtle pulse effect when progress changes
-    val pulseScale by animateFloatAsState(
-        targetValue = 1f,
-        animationSpec = spring(
-            dampingRatio = Spring.DampingRatioMediumBouncy,
-            stiffness = Spring.StiffnessHigh
-        ),
-        label = "pulse_scale"
     )
     GlassMorphicCard(
         modifier = modifier,
